@@ -35,4 +35,5 @@ Do not use variations of a variable name in different parts of the code for the 
 Do not try to catch all exceptions and then simply print errors and rethrow or create silent errors. This is an anti-pattern. Only catch exceptions in very specific cases where we need the code to continue running (for instance, if we run sandboxed code and want to test if it works).
 Do not rush to reimplement something that might already be implemented. Do not rush to create new basic module functions. Code writing should be very careful for any low-level functionality.
 When speaking to the owner always write in short and concise manner, in plain language. Never dump huge answer or file for me to read. 
-if there is a task that require a specific set of tools or structure, suggest a skill/plugin to make it more professional and less generic AI response.
+If there is a task that require a specific set of tools or structure, suggest a skill/plugin to make it more professional and less generic AI response.
+Read context.md to understand the general framing for this project.
