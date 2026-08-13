@@ -6,14 +6,32 @@ jackknife over individuals.
 
 ## Running it
 
+	sbatch fst_time_series.sh
+
+or, step by step, from the repository directory:
+
 	python run_fst_time_series.py --config config_fst_time.json
 	python plot_fst_time_series.py --results results/fst_time_series.csv --output-dir results
-	python check_fst_parity.py --reference ../delphi/analyses/fst.py
 
 Everything is set in `config_fst_time.json`: the two polygons, the gene list,
 the flank sizes, the call rate threshold and the confidence level. Changing
 the genes or swapping a population is a config edit, not a code edit. Nothing
 in the run is random, so the same inputs always give the same numbers.
+
+Paths to the genotypes and the annotation are absolute, everything else is
+read and written next to the code, so the repository can be cloned anywhere.
+
+After editing the gene list, resolve it before submitting a job. This reads
+only the annotation and takes seconds, and names a symbol the annotation does
+not carry rather than failing later:
+
+	python -c "import json; from gene_regions import load_gene_spans; \
+		config = json.load(open('config_fst_time.json')); \
+		print(load_gene_spans(config['annotation_path'], config['genes']))"
+
+Two checks that do not need the cluster data:
+
+	python check_fst_parity.py --reference ../delphi/analyses/fst.py
 
 ## Output
 
@@ -49,7 +67,9 @@ few, so the gene body regions differ more than the flanked ones.
 
 **Region span.** Each gene is measured twice, over the gene body and over the
 body plus 100 kb on each side. The gene body of SLC24A5 carries very few
-variants on capture data, and few variants means a noisy estimate.
+variants on capture data, and few variants means a noisy estimate. Each gene
+gets its own figure, holding both of its spans and the genome wide background,
+for every SNP set alternative and estimator.
 
 **Interval.** The interval is a delete-one jackknife over individuals: each
 individual of each population is dropped in turn, and the spread of the
@@ -105,7 +125,15 @@ which must match the build of the genotypes. GENCODE 19 and the AADR are both
 hg19.
 
 **Autosomes only,** and the genome wide background includes the focal regions,
-which are a negligible fraction of it.
+which are a negligible fraction of it. A gene on X or Y resolves to a region
+holding no variants and produces an empty panel, so G6PD cannot be measured
+here. Hemizygous males make the diploid estimator wrong on X, which is why the
+chromosome is left out rather than quietly included.
+
+**Gene symbols are the annotation's, not today's.** GENCODE 19 dates from 2013
+and carries the symbols of that time. DARC was renamed ACKR1 in 2015, so the
+config asks for DARC. A symbol the annotation does not know stops the run
+before any genotype is read.
 
 **A rule inside the estimator cannot be switched off.** Variants with two or
 fewer called alleles in either population are dropped by the Weir & Cockerham

@@ -66,20 +66,33 @@ def plot_panel(rows, title, output_path):
 	plt.close(figure)
 
 
-def panel_title(rows):
+def panel_title(rows, gene):
 	first = rows.iloc[0]
-	return (f'{first["polygon_a"]} vs {first["polygon_b"]}, '
+	return (f'{gene}, {first["polygon_a"]} vs {first["polygon_b"]}, '
 	        f'{first["estimator"].replace("_", " ")}, SNP set: {first["filter_mode"]}')
+
+
+def gene_panels(table):
+	'''
+	The rows of each figure: one gene against the genome wide background, for
+	every SNP set alternative and estimator.
+	'''
+	genes = sorted(set(table['gene'].fillna('')) - {''})
+	for (filter_mode, estimator), rows in table.groupby(['filter_mode', 'estimator']):
+		background = rows[rows['target'] == GENOME_WIDE_TARGET]
+		for gene in genes:
+			panel_rows = pd.concat([rows[rows['gene'] == gene], background])
+			yield gene, filter_mode, estimator, panel_rows
 
 
 def plot_all_panels(table, output_dir):
 	'''
-	One figure per SNP set alternative and estimator, so the effect of both
-	choices is visible side by side.
+	One figure per gene, SNP set alternative and estimator, each holding the
+	spans of that gene and the genome wide background.
 	'''
-	for (filter_mode, estimator), rows in table.groupby(['filter_mode', 'estimator']):
-		output_path = output_dir / f'fst_time_series_{filter_mode}_{estimator}.png'
-		plot_panel(rows, panel_title(rows), output_path)
+	for gene, filter_mode, estimator, rows in gene_panels(table):
+		output_path = output_dir / f'fst_{gene}_{filter_mode}_{estimator}.png'
+		plot_panel(rows, panel_title(rows, gene), output_path)
 
 
 def main():

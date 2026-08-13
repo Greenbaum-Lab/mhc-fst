@@ -142,6 +142,7 @@ def build_context(config):
 		'variant_index': variant_index,
 		'target_masks': region_masks(regions, chromosome, position),
 		'target_names': [region['region_id'] for region in regions] + [GENOME_WIDE_TARGET],
+		'gene_by_target': {region['region_id']: region['gene'] for region in regions},
 		'sample_indices': select_sample_indices(source, sample_ids),
 		'bin_rows': [
 			(block_rows(row_by_sample_id, time_bin['samples_a']), block_rows(row_by_sample_id, time_bin['samples_b']))

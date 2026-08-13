@@ -9,11 +9,12 @@ module load miniconda3/24.3.0-gcc-iqeknet
 eval "$(conda shell.bash hook)"
 conda activate adna
 
-WORK_DIR=/sci/labs/gilig/lab_share/adna_db/ohad_mhc
+REPO_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+cd $REPO_DIR
 
-python $WORK_DIR/run_fst_time_series.py \
-	--config $WORK_DIR/config_fst_time.json
+python run_fst_time_series.py \
+	--config config_fst_time.json
 
-python $WORK_DIR/plot_fst_time_series.py \
-	--results $WORK_DIR/results/fst_time_series.csv \
-	--output-dir $WORK_DIR/results
+python plot_fst_time_series.py \
+	--results results/fst_time_series.csv \
+	--output-dir results

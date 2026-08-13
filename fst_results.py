@@ -15,7 +15,7 @@ from jackknife import confidence_interval, POINT_ESTIMATE_COLUMN
 from variant_masks import FILTER_MODES
 
 TABLE_COLUMNS = [
-	'polygon_a', 'polygon_b', 'time_start', 'time_end', 'target', 'filter_mode',
+	'polygon_a', 'polygon_b', 'time_start', 'time_end', 'gene', 'target', 'filter_mode',
 	'estimator', 'fst', 'ci_low', 'ci_high', 'jackknife_standard_error',
 	'n_samples_a', 'n_samples_b', 'n_variants',
 ]
@@ -51,6 +51,7 @@ def result_row(config, context, accumulators, estimator_name, values, index):
 		'polygon_b': config['polygon_b'],
 		'time_start': time_bin['time_start'],
 		'time_end': time_bin['time_end'],
+		'gene': context['gene_by_target'].get(context['target_names'][target_position], ''),
 		'target': context['target_names'][target_position],
 		'filter_mode': FILTER_MODES[mode_position],
 		'estimator': estimator_name,
