@@ -1,15 +1,17 @@
 '''
-Jackknife over individuals.
+Jackknife over individuals and over blocks of variants.
 
-Leaving one individual out is a reweighting of the individuals, so one column
-of weights is one leave-one-out sample and a whole population is done in a
-single matrix product. Column zero keeps everyone and is the estimate itself.
+Both answer a different question. Dropping individuals asks whether a
+different set of people would give a different answer. Dropping a block of
+neighbouring variants asks whether a different stretch of genome would. For a
+genome wide average the first is small and the second is what matters, and for
+a region holding few variants the second dominates by far.
 
-A leave-one-out sample never holds the same individual twice, unlike
-resampling with replacement, so it stays a genuine sample of its size, the
-Weir & Cockerham sample size correction remains valid, and the samples carry
-no duplication bias. Nothing here is random, so a run is reproducible without
-a seed.
+Leaving one out is a reweighting, so a whole set of leave-one-out samples is
+one matrix product. A leave-one-out sample never holds the same individual
+twice, unlike resampling with replacement, so it stays a genuine sample of its
+size and the Weir & Cockerham correction remains valid. Nothing here is
+random, so a run is reproducible without a seed.
 '''
 
 import numpy as np
@@ -42,32 +44,40 @@ def paired_jackknife_weights(count_a, count_b):
 
 def group_variance(leave_one_out_values):
 	'''
-	Variance one population contributes, from the spread of the estimates that
-	drop each of its individuals in turn.
+	Variance a group contributes, from the spread of the estimates that drop
+	each of its members in turn.
 	'''
 	count = len(leave_one_out_values)
-	if count == 0 or np.all(np.isnan(leave_one_out_values)):
+	if count < 2 or np.all(np.isnan(leave_one_out_values)):
 		return np.nan
 	deviations = leave_one_out_values - np.nanmean(leave_one_out_values)
 	return (count - 1) / count * np.nansum(deviations ** 2)
 
 
-def standard_error(values, count_a, count_b):
+def individual_standard_error(values, count_a, count_b):
 	'''
-	Jackknife standard error of a time bin, summing what each population
-	contributes.
+	Standard error over individuals, summing what each population contributes.
 	'''
 	values_a = values[1:1 + count_a]
 	values_b = values[1 + count_a:1 + count_a + count_b]
 	return float(np.sqrt(group_variance(values_a) + group_variance(values_b)))
 
 
-def confidence_interval(point_estimate, values, count_a, count_b, confidence_level):
+def block_standard_error(delete_block_values, block_variant_count):
 	'''
-	Interval around the estimate from the jackknife standard error. The bounds
-	are not clipped at zero, so an interval reaching below zero shows a value
-	that cannot be told apart from no differentiation.
+	Standard error over blocks of variants, counting only the blocks that hold
+	variants. Empty blocks would return the estimate unchanged and shrink the
+	spread.
 	'''
-	error = standard_error(values, count_a, count_b)
+	used = delete_block_values[block_variant_count > 0]
+	return float(np.sqrt(group_variance(used)))
+
+
+def interval(point_estimate, standard_error, confidence_level):
+	'''
+	Interval around the estimate. The bounds are not clipped at zero, so an
+	interval reaching below zero shows a value that cannot be told apart from
+	no differentiation.
+	'''
 	quantile = NormalDist().inv_cdf(1.0 - (1.0 - confidence_level) / 2.0)
-	return point_estimate - quantile * error, point_estimate + quantile * error, error
+	return point_estimate - quantile * standard_error, point_estimate + quantile * standard_error

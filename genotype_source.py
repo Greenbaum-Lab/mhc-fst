@@ -35,7 +35,7 @@ def select_sample_indices(source, sample_ids):
 	return np.array([index_by_id[sample_id] for sample_id in sample_ids])
 
 
-def read_block(source, sample_indices, variant_indices):
+def read_genotypes(source, sample_indices, variant_indices):
 	'''
 	Genotypes of the requested samples and variants as float32, with nan for
 	missing calls, laid out as samples by variants.
@@ -46,17 +46,10 @@ def read_block(source, sample_indices, variant_indices):
 def allele_statistics(genotypes, weights):
 	'''
 	Allele count, allele number and heterozygote count per variant for every
-	column of weights. Weighting the individuals is what makes a bootstrap
-	replicate, so one matrix product yields every replicate at once.
+	column of weights. Weighting the individuals is what makes a leave-one-out
+	sample, so one matrix product yields every sample at once.
 	'''
 	called = np.isfinite(genotypes).astype(np.float32)
 	filled = np.nan_to_num(genotypes, nan=0.0)
 	heterozygous = (genotypes == 1.0).astype(np.float32)
 	return filled.T @ weights, 2.0 * (called.T @ weights), heterozygous.T @ weights
-
-
-def called_fraction(genotypes):
-	'''
-	Fraction of individuals with a call at each variant.
-	'''
-	return np.isfinite(genotypes).mean(axis=0)
