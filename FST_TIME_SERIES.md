@@ -1,0 +1,141 @@
+# FST across time for two populations
+
+FST between two polygon populations of `populations.json`, in focal gene
+regions and genome wide, over every time bin both populations define, with a
+jackknife over individuals.
+
+## Running it
+
+	sbatch fst_time_series.sh
+
+or, step by step, from the repository directory:
+
+	python run_fst_time_series.py --config config_fst_time.json
+	python plot_fst_time_series.py --results results/fst_time_series.csv --output-dir results
+
+Everything is set in `config_fst_time.json`: the two polygons, the gene list,
+the flank sizes, the call rate threshold and the confidence level. Changing
+the genes or swapping a population is a config edit, not a code edit. Nothing
+in the run is random, so the same inputs always give the same numbers.
+
+Paths to the genotypes and the annotation are absolute, everything else is
+read and written next to the code, so the repository can be cloned anywhere.
+
+After editing the gene list, resolve it before submitting a job. This reads
+only the annotation and takes seconds, and names a symbol the annotation does
+not carry rather than failing later:
+
+	python -c "import json; from gene_regions import load_gene_spans; \
+		config = json.load(open('config_fst_time.json')); \
+		print(load_gene_spans(config['annotation_path'], config['genes']))"
+
+Two checks that do not need the cluster data:
+
+	python check_fst_parity.py --reference ../delphi/analyses/fst.py
+
+## Output
+
+`results/fst_time_series.csv` has one row per time bin, target, SNP set and
+estimator, with the estimate, its interval, its standard error, the sample
+counts and the number of variants the estimate used.
+`results/fst_jackknife.npz` keeps every leave-one-out value, so comparisons
+between a region and the background can be made later without the genotypes.
+`results/focal_regions.csv` records the coordinates the gene symbols resolved
+to.
+
+## Choices that change the numbers
+
+Four choices are reported side by side rather than fixed, because each one
+moves the result and none of them is obviously right.
+
+**SNP set.** Ancient samples are patchy, so a variant is only usable where
+enough individuals have a call. Call rate is the fraction of individuals in a
+population and bin with a call, and the threshold is applied to the lower of
+the two populations.
+
+- `none` keeps every variant.
+- `per_bin` keeps variants above the threshold in that bin, so the variant set
+  changes from bin to bin with coverage. Part of any trend can then come from
+  coverage rather than from allele frequencies.
+- `intersection` keeps variants above the threshold in every bin, so all bins
+  share one fixed set. Fewer variants, but the trend across time is comparable.
+
+**Estimator.** `ratio_of_averages` sums the Weir & Cockerham components over
+the region and divides once. `average_of_ratios` averages the per variant
+values, which is what the browser does. They differ most where variants are
+few, so the gene body regions differ more than the flanked ones.
+
+**Region span.** Each gene is measured twice, over the gene body and over the
+body plus 100 kb on each side. The gene body of SLC24A5 carries very few
+variants on capture data, and few variants means a noisy estimate. Each gene
+gets its own figure, holding both of its spans and the genome wide background,
+for every SNP set alternative and estimator.
+
+**Interval.** The interval is a delete-one jackknife over individuals: each
+individual of each population is dropped in turn, and the spread of the
+resulting estimates gives the standard error. An interval reaching below zero
+means the value cannot be told apart from no differentiation.
+
+A bootstrap over individuals was tried first and does not work here.
+Resampling with replacement holds the same individual twice, which makes a
+replicate more variable than a real sample of its size, and the Weir &
+Cockerham correction, computed from the resampled size, does not remove that.
+Every replicate then lands above the estimate, by more than the replicates
+spread among themselves, so the percentile interval sits entirely above the
+estimate and reflecting it puts the interval entirely below. Both miss. A
+leave-one-out sample holds nobody twice and has neither problem. On simulated
+data the jackknife standard error matches the spread of estimates over fresh
+draws of individuals: 0.00031 against 0.00040 at n=294/60, 0.00048 against
+0.00051 at n=166/29, and 0.00086 against 0.00073 at n=51/11.
+
+**What the interval does not cover.** Dropping individuals answers one
+question, whether a different set of people would give a different answer. It
+says nothing about whether a different set of loci would. For the genome wide
+line that hardly matters, since a million variants leave the estimate very
+precisely determined and the band is correspondingly thin. For a gene body
+holding a few dozen variants it matters a great deal, and the band there is
+narrower than the real uncertainty. A block jackknife over genomic blocks is
+what answers the second question, and is not implemented here.
+
+## Assumptions worth knowing
+
+**Pseudo-haploid genotypes.** Most ancient AADR individuals are pseudo-haploid,
+one allele called at random and written as a homozygote. The estimator is the
+diploid one and counts two alleles per individual, so it treats n individuals
+as 2n independent alleles when they are really n. On simulated data at a true
+FST of 0.02 this reads back as 0.052 at n=30, 0.036 at n=60 and 0.023 at
+n=300, an inflation of about 1/n that fades as the sample grows. Sample size
+changes from bin to bin, so part of any trend across time is this artefact
+rather than population history. Within a bin both lines carry the same
+inflation, so the gap between a focal region and the background is far more
+trustworthy than the height of either. Passing one allele per pseudo-haploid
+individual instead of two would remove it, and is not done here.
+
+**Population membership is inherited, not decided here.** Which individual
+belongs to which polygon and bin, and which individuals are excluded as low
+coverage or outliers, was settled when `populations.json` was built. This
+pipeline reads those rosters and does not re-derive them.
+
+**One date per individual.** Each individual sits in exactly one 1000 year bin
+by its median date. Dating uncertainty is ignored, and bins are treated as
+independent snapshots.
+
+**Coordinates are hg19.** Gene spans come from the GENCODE release passed in,
+which must match the build of the genotypes. GENCODE 19 and the AADR are both
+hg19.
+
+**Autosomes only,** and the genome wide background includes the focal regions,
+which are a negligible fraction of it. A gene on X or Y resolves to a region
+holding no variants and produces an empty panel, so G6PD cannot be measured
+here. Hemizygous males make the diploid estimator wrong on X, which is why the
+chromosome is left out rather than quietly included.
+
+**Gene symbols are the annotation's, not today's.** GENCODE 19 dates from 2013
+and carries the symbols of that time. DARC was renamed ACKR1 in 2015, so the
+config asks for DARC. A symbol the annotation does not know stops the run
+before any genotype is read.
+
+**A rule inside the estimator cannot be switched off.** Variants with two or
+fewer called alleles in either population are dropped by the Weir & Cockerham
+code itself. The `none` SNP set therefore means no call rate threshold, not
+literally every variant.
