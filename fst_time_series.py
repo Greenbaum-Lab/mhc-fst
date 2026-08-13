@@ -7,13 +7,13 @@ variant in every bin, which is what the SNP set alternatives are built from.
 The second pass streams the variants again and accumulates, for each bin, the
 sums that both multi-locus estimators need, separately for every region and
 every SNP set alternative. Focal regions and the genome wide background share
-one set of resampled individuals per bin, so their intervals are comparable.
+one set of leave-one-out samples per bin, so their intervals are comparable.
 '''
 
 import numpy as np
 
 from fst_core import weir_cockerham_components, per_variant_fst
-from bootstrap import resampling_weights
+from jackknife import paired_jackknife_weights, column_count
 from gene_regions import load_gene_spans, build_regions
 from time_populations import load_populations, overlapping_time_bins
 from variant_masks import region_masks, filter_masks, FILTER_MODES, GENOME_WIDE_TARGET
@@ -66,37 +66,42 @@ def bin_call_rates(source, variant_index, sample_indices, bin_rows, chunk_size):
 	return call_rates
 
 
-def bin_weights(time_bins, replicate_count, random_seed):
+def bin_weights(time_bins):
 	'''
-	One weight matrix per population per bin. Both populations of a bin are
-	drawn from the same generator stream, and the seed fixes the whole run.
+	One leave-one-out weight matrix per population per bin.
 	'''
-	random_generator = np.random.default_rng(random_seed)
 	return [
-		(
-			resampling_weights(len(time_bin['samples_a']), replicate_count, random_generator),
-			resampling_weights(len(time_bin['samples_b']), replicate_count, random_generator),
-		)
+		paired_jackknife_weights(len(time_bin['samples_a']), len(time_bin['samples_b']))
 		for time_bin in time_bins
 	]
 
 
-def empty_accumulators(bin_count, target_count, column_count):
-	shape = (bin_count, target_count, len(FILTER_MODES), column_count)
+def bin_columns(time_bins):
+	'''
+	Columns each bin fills, the widest of which sizes the accumulators.
+	'''
+	return [column_count(len(time_bin['samples_a']), len(time_bin['samples_b'])) for time_bin in time_bins]
+
+
+def empty_accumulators(bin_count, target_count, widest_bin):
+	shape = (bin_count, target_count, len(FILTER_MODES), widest_bin)
 	return {name: np.zeros(shape) for name in ACCUMULATOR_NAMES}
 
 
 def add_selection(accumulators, index, components, variant_fst, selected):
 	'''
 	Add the variants of one region and SNP set alternative into the running
-	sums, dropping the variants the estimator marked unusable.
+	sums, dropping the variants the estimator marked unusable. A bin fills
+	only as many columns as it has individuals, so each sum is written into
+	the leading columns of its row.
 	'''
 	component_a, component_b, component_c = components
-	accumulators['sum_a'][index] += np.nansum(component_a[selected], axis=0, dtype=np.float64)
-	accumulators['sum_b'][index] += np.nansum(component_b[selected], axis=0, dtype=np.float64)
-	accumulators['sum_c'][index] += np.nansum(component_c[selected], axis=0, dtype=np.float64)
-	accumulators['sum_fst'][index] += np.nansum(variant_fst[selected], axis=0, dtype=np.float64)
-	accumulators['variant_count'][index] += np.count_nonzero(~np.isnan(variant_fst[selected]), axis=0)
+	columns = component_a.shape[1]
+	accumulators['sum_a'][index][:columns] += np.nansum(component_a[selected], axis=0, dtype=np.float64)
+	accumulators['sum_b'][index][:columns] += np.nansum(component_b[selected], axis=0, dtype=np.float64)
+	accumulators['sum_c'][index][:columns] += np.nansum(component_c[selected], axis=0, dtype=np.float64)
+	accumulators['sum_fst'][index][:columns] += np.nansum(variant_fst[selected], axis=0, dtype=np.float64)
+	accumulators['variant_count'][index][:columns] += np.count_nonzero(~np.isnan(variant_fst[selected]), axis=0)
 
 
 def accumulate_bin(accumulators, bin_position, components, variant_fst, target_masks, target_names, bin_filter_masks):
@@ -155,9 +160,9 @@ def run_time_series(config):
 		context['source'], context['variant_index'], context['sample_indices'],
 		context['bin_rows'], config['chunk_size'])
 	filter_masks_by_mode = filter_masks(call_rates, config['call_rate_threshold'])
-	weights_by_bin = bin_weights(context['time_bins'], config['replicate_count'], config['random_seed'])
+	weights_by_bin = bin_weights(context['time_bins'])
 	accumulators = empty_accumulators(
-		len(context['time_bins']), len(context['target_names']), config['replicate_count'] + 1)
+		len(context['time_bins']), len(context['target_names']), max(bin_columns(context['time_bins'])))
 	for start, end in chunk_bounds(len(context['variant_index']), config['chunk_size']):
 		block = read_block(context['source'], context['sample_indices'], context['variant_index'][start:end])
 		chunk_targets = {name: mask[start:end] for name, mask in context['target_masks'].items()}

@@ -3,7 +3,7 @@ import pathlib
 import argparse
 
 from fst_time_series import run_time_series
-from fst_results import build_table, save_replicates, save_regions
+from fst_results import build_table, save_jackknife_values, save_regions
 
 
 def load_config(config_path):
@@ -13,14 +13,14 @@ def load_config(config_path):
 
 def write_outputs(config, context, accumulators):
 	'''
-	Write the results table, the raw bootstrap replicates and the focal region
+	Write the results table, the leave-one-out values and the focal region
 	coordinates the run resolved.
 	'''
 	output_dir = pathlib.Path(config['output_dir'])
 	output_dir.mkdir(parents=True, exist_ok=True)
 	table = build_table(config, context, accumulators)
 	table.to_csv(output_dir / 'fst_time_series.csv', index=False)
-	save_replicates(output_dir / 'fst_bootstrap.npz', context, accumulators)
+	save_jackknife_values(output_dir / 'fst_jackknife.npz', context, accumulators)
 	save_regions(output_dir / 'focal_regions.csv', context['regions'])
 	return table
 

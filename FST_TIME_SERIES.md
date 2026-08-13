@@ -2,7 +2,7 @@
 
 FST between two polygon populations of `populations.json`, in focal gene
 regions and genome wide, over every time bin both populations define, with a
-bootstrap over individuals.
+jackknife over individuals.
 
 ## Running it
 
@@ -11,16 +11,16 @@ bootstrap over individuals.
 	python check_fst_parity.py --reference ../delphi/analyses/fst.py
 
 Everything is set in `config_fst_time.json`: the two polygons, the gene list,
-the flank sizes, the call rate threshold, the number of replicates and the
-seed. Changing the genes or swapping a population is a config edit, not a code
-edit.
+the flank sizes, the call rate threshold and the confidence level. Changing
+the genes or swapping a population is a config edit, not a code edit. Nothing
+in the run is random, so the same inputs always give the same numbers.
 
 ## Output
 
 `results/fst_time_series.csv` has one row per time bin, target, SNP set and
-estimator, with the point estimate, both bootstrap intervals, the sample
+estimator, with the estimate, its interval, its standard error, the sample
 counts and the number of variants the estimate used.
-`results/fst_bootstrap.npz` keeps every replicate value, so comparisons
+`results/fst_jackknife.npz` keeps every leave-one-out value, so comparisons
 between a region and the background can be made later without the genotypes.
 `results/focal_regions.csv` records the coordinates the gene symbols resolved
 to.
@@ -51,16 +51,31 @@ few, so the gene body regions differ more than the flanked ones.
 body plus 100 kb on each side. The gene body of SLC24A5 carries very few
 variants on capture data, and few variants means a noisy estimate.
 
-**Bootstrap interval.** Resampling individuals with replacement duplicates
-individuals, which makes a replicate more variable than a real sample of the
-same size. The Weir & Cockerham sample size correction is computed from the
-resampled size and does not remove that, so replicates sit above the point
-estimate by roughly the reciprocal of the smaller population size, about
-+0.006 at n=60 and +0.03 at n=11. `ci_low_basic` and `ci_high_basic` reflect
-the interval about the point estimate and remove the shift, and are what the
-figures show. `ci_low_percentile` and `ci_high_percentile` are the raw
-interval, kept for comparison. A basic interval reaching below zero means the
-value cannot be told apart from no differentiation.
+**Interval.** The interval is a delete-one jackknife over individuals: each
+individual of each population is dropped in turn, and the spread of the
+resulting estimates gives the standard error. An interval reaching below zero
+means the value cannot be told apart from no differentiation.
+
+A bootstrap over individuals was tried first and does not work here.
+Resampling with replacement holds the same individual twice, which makes a
+replicate more variable than a real sample of its size, and the Weir &
+Cockerham correction, computed from the resampled size, does not remove that.
+Every replicate then lands above the estimate, by more than the replicates
+spread among themselves, so the percentile interval sits entirely above the
+estimate and reflecting it puts the interval entirely below. Both miss. A
+leave-one-out sample holds nobody twice and has neither problem. On simulated
+data the jackknife standard error matches the spread of estimates over fresh
+draws of individuals: 0.00031 against 0.00040 at n=294/60, 0.00048 against
+0.00051 at n=166/29, and 0.00086 against 0.00073 at n=51/11.
+
+**What the interval does not cover.** Dropping individuals answers one
+question, whether a different set of people would give a different answer. It
+says nothing about whether a different set of loci would. For the genome wide
+line that hardly matters, since a million variants leave the estimate very
+precisely determined and the band is correspondingly thin. For a gene body
+holding a few dozen variants it matters a great deal, and the band there is
+narrower than the real uncertainty. A block jackknife over genomic blocks is
+what answers the second question, and is not implemented here.
 
 ## Assumptions worth knowing
 
