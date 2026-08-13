@@ -9,7 +9,7 @@ module load miniconda3/24.3.0-gcc-iqeknet
 eval "$(conda shell.bash hook)"
 conda activate adna
 
-REPO_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_DIR=${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 cd $REPO_DIR
 
 python run_fst_time_series.py \
