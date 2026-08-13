@@ -7,43 +7,49 @@ from variant_masks import GENOME_WIDE_TARGET
 
 BACKGROUND_COLOR = 'black'
 BACKGROUND_LABEL = 'genome wide'
+UNCERTAINTIES = {
+	'individuals': 'jackknife over individuals',
+	'snp_blocks': 'jackknife over blocks of variants',
+}
 
 
 def bin_midpoints(rows):
 	return (rows['time_start'] + rows['time_end']) / 2000.0
 
 
-def plot_target(axis, rows, label, color, line_style):
+def plot_target(axis, rows, label, color, line_style, uncertainty):
 	'''
 	One target as a line with its jackknife interval as a shaded band.
 	'''
 	years = bin_midpoints(rows)
 	axis.plot(years, rows['fst'], label=label, color=color, linestyle=line_style)
 	axis.scatter(years, rows['fst'], color=color, s=18)
-	axis.fill_between(years, rows['ci_low'], rows['ci_high'], color=color, alpha=0.15, linewidth=0)
+	axis.fill_between(
+		years, rows[f'ci_low_{uncertainty}'], rows[f'ci_high_{uncertainty}'],
+		color=color, alpha=0.15, linewidth=0)
 
 
-def annotate_sample_counts(axis, background_rows):
+def annotate_sample_counts(axis, background_rows, uncertainty):
 	'''
 	Individuals of each population per bin, the same for every target.
 	'''
 	for _, row in background_rows.iterrows():
 		axis.annotate(
 			f'{row["n_samples_a"]}/{row["n_samples_b"]}',
-			xy=((row['time_start'] + row['time_end']) / 2000.0, row['ci_low']),
+			xy=((row['time_start'] + row['time_end']) / 2000.0, row[f'ci_low_{uncertainty}']),
 			xytext=(0, -12), textcoords='offset points',
 			fontsize=8, ha='center', color='0.4')
 
 
-def draw_series(axis, rows):
+def draw_series(axis, rows, uncertainty):
 	focal_targets = sorted(set(rows['target']) - {GENOME_WIDE_TARGET})
 	colors = plt.cm.Dark2.colors
 	for position, target in enumerate(focal_targets):
 		target_rows = rows[rows['target'] == target].sort_values('time_start')
-		plot_target(axis, target_rows, target, colors[position % len(colors)], '-')
+		plot_target(axis, target_rows, target, colors[position % len(colors)], '-', uncertainty)
 	background_rows = rows[rows['target'] == GENOME_WIDE_TARGET].sort_values('time_start')
-	plot_target(axis, background_rows, BACKGROUND_LABEL, BACKGROUND_COLOR, '--')
-	annotate_sample_counts(axis, background_rows)
+	plot_target(axis, background_rows, BACKGROUND_LABEL, BACKGROUND_COLOR, '--', uncertainty)
+	annotate_sample_counts(axis, background_rows, uncertainty)
 
 
 def style_axis(axis, title):
@@ -57,46 +63,46 @@ def style_axis(axis, title):
 	axis.legend(frameon=False, fontsize=9)
 
 
-def plot_panel(rows, title, output_path):
+def plot_panel(rows, title, output_path, uncertainty):
 	figure, axis = plt.subplots(figsize=(8, 5))
-	draw_series(axis, rows)
+	draw_series(axis, rows, uncertainty)
 	style_axis(axis, title)
 	figure.tight_layout()
 	figure.savefig(output_path, dpi=200)
 	plt.close(figure)
 
 
-def panel_title(rows, gene):
+def panel_title(rows, locus, uncertainty):
 	first = rows.iloc[0]
-	return (f'{gene}, {first["polygon_a"]} vs {first["polygon_b"]}, '
-	        f'{first["estimator"].replace("_", " ")}, SNP set: {first["filter_mode"]}')
+	return (f'{locus}, {first["polygon_a"]} vs {first["polygon_b"]}, '
+	        f'{first["estimator"].replace("_", " ")}\n{UNCERTAINTIES[uncertainty]}')
 
 
-def gene_panels(table):
+def locus_panels(table):
 	'''
-	The rows of each figure: one gene against the genome wide background, for
-	every SNP set alternative and estimator.
+	The rows of each figure: one locus against the genome wide background, for
+	every estimator.
 	'''
-	genes = sorted(set(table['gene'].fillna('')) - {''})
-	for (filter_mode, estimator), rows in table.groupby(['filter_mode', 'estimator']):
+	loci = sorted(set(table['locus'].fillna('')) - {''})
+	for estimator, rows in table.groupby('estimator'):
 		background = rows[rows['target'] == GENOME_WIDE_TARGET]
-		for gene in genes:
-			panel_rows = pd.concat([rows[rows['gene'] == gene], background])
-			yield gene, filter_mode, estimator, panel_rows
+		for locus in loci:
+			yield locus, estimator, pd.concat([rows[rows['locus'] == locus], background])
 
 
 def plot_all_panels(table, output_dir):
 	'''
-	One figure per gene, SNP set alternative and estimator, each holding the
-	spans of that gene and the genome wide background.
+	One figure per locus, estimator and jackknife, each holding the spans of
+	that locus and the genome wide background.
 	'''
-	for gene, filter_mode, estimator, rows in gene_panels(table):
-		output_path = output_dir / f'fst_{gene}_{filter_mode}_{estimator}.png'
-		plot_panel(rows, panel_title(rows, gene), output_path)
+	for locus, estimator, rows in locus_panels(table):
+		for uncertainty in UNCERTAINTIES:
+			output_path = output_dir / f'fst_{locus}_{estimator}_{uncertainty}.png'
+			plot_panel(rows, panel_title(rows, locus, uncertainty), output_path, uncertainty)
 
 
 def main():
-	parser = argparse.ArgumentParser(description='Plot FST across time for focal regions and the genome wide background')
+	parser = argparse.ArgumentParser(description='Plot FST across time for focal loci and the genome wide background')
 	parser.add_argument('--results', required=True)
 	parser.add_argument('--output-dir', required=True)
 	args = parser.parse_args()

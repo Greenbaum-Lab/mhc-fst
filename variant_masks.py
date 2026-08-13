@@ -1,16 +1,14 @@
 '''
-Which variants enter which estimate.
+Which variants enter which estimate, and how they are blocked.
 
-Two independent selections are applied together: the target selects a genomic
-region, and the SNP set alternative selects variants by call rate. The three
-alternatives are computed side by side so the effect of filtering is visible
-rather than assumed.
+Every variant is used: there is no call rate threshold, and the only variants
+dropped are those the Weir & Cockerham code itself rejects for holding two or
+fewer called alleles.
 '''
 
 import numpy as np
 
 GENOME_WIDE_TARGET = 'genome_wide'
-FILTER_MODES = ['none', 'per_bin', 'intersection']
 
 
 def region_masks(regions, chromosome, position):
@@ -28,20 +26,19 @@ def region_masks(regions, chromosome, position):
 	return masks
 
 
-def filter_masks(minimum_call_rates, call_rate_threshold):
+def block_indices(target_masks, block_count):
 	'''
-	Variants kept per time bin under each SNP set alternative, one row per bin.
-
-	none         every variant, no call rate threshold.
-	per_bin      variants above the threshold in that bin, so the variant set
-	             changes between bins with coverage.
-	intersection variants above the threshold in every bin, so all bins share
-	             one fixed variant set.
+	The block each variant belongs to within a target, and -1 for variants the
+	target does not hold. Blocks are runs of neighbouring variants holding
+	equal counts, so deleting one in turn needs no block weighting. A target
+	with fewer variants than blocks leaves some blocks empty.
 	'''
-	passing = minimum_call_rates >= call_rate_threshold
-	shared = passing.all(axis=0)
-	return {
-		'none': np.ones(passing.shape, dtype=bool),
-		'per_bin': passing,
-		'intersection': np.broadcast_to(shared, passing.shape),
-	}
+	indices = {}
+	for target_name, mask in target_masks.items():
+		total = int(mask.sum())
+		assigned = np.full(len(mask), -1, dtype=np.int16)
+		if total > 0:
+			ranks = np.arange(total)
+			assigned[mask] = np.minimum(ranks * block_count // total, block_count - 1)
+		indices[target_name] = assigned
+	return indices

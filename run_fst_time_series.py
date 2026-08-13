@@ -11,16 +11,16 @@ def load_config(config_path):
 		return json.load(config_file)
 
 
-def write_outputs(config, context, accumulators):
+def write_outputs(config, context, accumulators, block_accumulators):
 	'''
 	Write the results table, the leave-one-out values and the focal region
 	coordinates the run resolved.
 	'''
 	output_dir = pathlib.Path(config['output_dir'])
 	output_dir.mkdir(parents=True, exist_ok=True)
-	table = build_table(config, context, accumulators)
+	table = build_table(config, context, accumulators, block_accumulators)
 	table.to_csv(output_dir / 'fst_time_series.csv', index=False)
-	save_jackknife_values(output_dir / 'fst_jackknife.npz', context, accumulators)
+	save_jackknife_values(output_dir / 'fst_jackknife.npz', context, accumulators, block_accumulators)
 	save_regions(output_dir / 'focal_regions.csv', context['regions'])
 	return table
 
@@ -30,8 +30,8 @@ def main():
 	parser.add_argument('--config', required=True)
 	args = parser.parse_args()
 	config = load_config(args.config)
-	context, accumulators = run_time_series(config)
-	table = write_outputs(config, context, accumulators)
+	context, accumulators, block_accumulators = run_time_series(config)
+	table = write_outputs(config, context, accumulators, block_accumulators)
 	print(f'{len(context["time_bins"])} time bins, {len(context["target_names"])} targets, {len(table)} rows')
 
 

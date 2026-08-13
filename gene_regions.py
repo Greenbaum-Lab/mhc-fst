@@ -1,9 +1,11 @@
 '''
-Focal regions resolved from gene symbols against a GENCODE GTF.
+Focal regions resolved from a locus list against a GENCODE GTF.
 
-Positions come from the annotation file, so the reference build of the regions
-is the build of the file that is passed in. GENCODE release 19 is hg19, the
-build the AADR genotypes use.
+A locus is either a set of gene symbols, in which case it spans from the first
+start to the last end of those genes, or a chromosome and a pair of
+coordinates given directly. Positions come from the annotation file, so the
+reference build of the regions is the build of the file passed in. GENCODE
+release 19 is hg19, the build the AADR genotypes use.
 '''
 
 import gzip
@@ -44,50 +46,71 @@ def collect_gene_features(annotation_path, gene_names):
 	return features
 
 
-def resolve_span(gene_name, gene_features):
+def merge_spans(label, spans):
 	'''
-	The span of one gene, merging several annotated features of the same
-	symbol. A symbol annotated on more than one chromosome is ambiguous and
-	raises rather than being resolved silently.
+	The extent of several spans. Spans on more than one chromosome are
+	ambiguous and raise rather than being resolved silently.
 	'''
-	chromosomes = {chromosome for chromosome, _, _ in gene_features}
+	chromosomes = {chromosome for chromosome, _, _ in spans}
 	if len(chromosomes) > 1:
-		raise ValueError(f'Gene {gene_name} is annotated on chromosomes {sorted(chromosomes)}')
-	starts = [start for _, start, _ in gene_features]
-	ends = [end for _, _, end in gene_features]
+		raise ValueError(f'{label} covers chromosomes {sorted(chromosomes)}')
+	starts = [start for _, start, _ in spans]
+	ends = [end for _, _, end in spans]
 	return chromosomes.pop(), min(starts), max(ends)
 
 
 def load_gene_spans(annotation_path, gene_names):
 	'''
 	The hg19 span of each requested gene symbol. Raises if a symbol is absent
-	from the annotation, so a typo cannot pass as a region without variants.
+	from the annotation, so a symbol the annotation does not carry stops the
+	run instead of becoming a region without variants.
 	'''
 	features = collect_gene_features(annotation_path, gene_names)
 	missing = set(gene_names) - set(features)
 	if missing:
 		raise KeyError(f'Genes not found in annotation: {sorted(missing)}')
-	return {gene_name: resolve_span(gene_name, features[gene_name]) for gene_name in gene_names}
+	return {gene_name: merge_spans(gene_name, features[gene_name]) for gene_name in gene_names}
 
 
-def region_label(gene_name, flank_size):
+def locus_gene_names(loci):
+	'''
+	Every gene symbol the locus list names, which is what has to be resolved.
+	'''
+	return [gene_name for locus in loci for gene_name in locus.get('genes', [])]
+
+
+def locus_span(locus, gene_spans):
+	'''
+	Chromosome, start and end of a locus, either the extent of the genes it
+	names or the coordinates it gives directly.
+	'''
+	if 'chromosome' in locus:
+		return locus['chromosome'], locus['start'], locus['end']
+	return merge_spans(locus['label'], [gene_spans[gene_name] for gene_name in locus['genes']])
+
+
+def region_label(locus_label, flank_size):
 	if flank_size == 0:
-		return f'{gene_name}_body'
-	return f'{gene_name}_flank{flank_size // 1000}kb'
+		return f'{locus_label}_span'
+	return f'{locus_label}_flank{flank_size // 1000}kb'
 
 
-def build_regions(gene_spans, flank_sizes):
-	'''
-	One region per gene and flank size, the gene span padded on both sides.
-	'''
+def locus_regions(locus, gene_spans, flank_sizes):
+	chromosome, start, end = locus_span(locus, gene_spans)
 	return [
 		{
-			'region_id': region_label(gene_name, flank_size),
-			'gene': gene_name,
+			'region_id': region_label(locus['label'], flank_size),
+			'locus': locus['label'],
 			'chromosome': chromosome,
 			'start': max(1, start - flank_size),
 			'end': end + flank_size,
 		}
-		for gene_name, (chromosome, start, end) in gene_spans.items()
 		for flank_size in flank_sizes
 	]
+
+
+def build_regions(loci, gene_spans, flank_sizes):
+	'''
+	One region per locus and flank size, the locus span padded on both sides.
+	'''
+	return [region for locus in loci for region in locus_regions(locus, gene_spans, flank_sizes)]
