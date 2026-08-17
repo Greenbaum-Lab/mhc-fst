@@ -3,9 +3,11 @@ Focal regions resolved from a locus list against a GENCODE GTF.
 
 A locus is either a set of gene symbols, in which case it spans from the first
 start to the last end of those genes, or a chromosome and a pair of
-coordinates given directly. Positions come from the annotation file, so the
-reference build of the regions is the build of the file passed in. GENCODE
-release 19 is hg19, the build the AADR genotypes use.
+coordinates given directly, and is measured over that span alone.
+
+Positions come from the annotation file, so the reference build of the regions
+is the build of the file passed in. GENCODE release 19 is hg19, the build the
+AADR genotypes use.
 '''
 
 import gzip
@@ -89,28 +91,21 @@ def locus_span(locus, gene_spans):
 	return merge_spans(locus['label'], [gene_spans[gene_name] for gene_name in locus['genes']])
 
 
-def region_label(locus_label, flank_size):
-	if flank_size == 0:
-		return f'{locus_label}_span'
-	return f'{locus_label}_flank{flank_size // 1000}kb'
-
-
-def locus_regions(locus, gene_spans, flank_sizes):
-	chromosome, start, end = locus_span(locus, gene_spans)
-	return [
-		{
-			'region_id': region_label(locus['label'], flank_size),
+def build_regions(loci, gene_spans):
+	'''
+	One region per locus, spanning it, carrying the phenotype it is studied
+	for and the trend expected of it.
+	'''
+	regions = []
+	for locus in loci:
+		chromosome, start, end = locus_span(locus, gene_spans)
+		regions.append({
 			'locus': locus['label'],
+			'phenotype': locus['phenotype'],
+			'trend': locus['trend'],
+			'time_bp': locus['time_bp'],
 			'chromosome': chromosome,
-			'start': max(1, start - flank_size),
-			'end': end + flank_size,
-		}
-		for flank_size in flank_sizes
-	]
-
-
-def build_regions(loci, gene_spans, flank_sizes):
-	'''
-	One region per locus and flank size, the locus span padded on both sides.
-	'''
-	return [region for locus in loci for region in locus_regions(locus, gene_spans, flank_sizes)]
+			'start': start,
+			'end': end,
+		})
+	return regions

@@ -13,7 +13,7 @@ per bin, so their intervals are comparable.
 
 import numpy as np
 
-from fst_core import weir_cockerham_components, per_variant_fst
+from fst_core import weir_cockerham_components
 from jackknife import paired_jackknife_weights, column_count, POINT_ESTIMATE_COLUMN
 from gene_regions import load_gene_spans, build_regions, locus_gene_names
 from time_populations import load_populations, overlapping_time_bins
@@ -26,7 +26,7 @@ from genotype_source import (
 	allele_statistics,
 )
 
-ACCUMULATOR_NAMES = ['sum_a', 'sum_b', 'sum_c', 'sum_fst', 'variant_count']
+ACCUMULATOR_NAMES = ['sum_a', 'sum_b', 'sum_c', 'variant_count']
 
 
 def chunk_bounds(variant_count, chunk_size):
@@ -71,7 +71,7 @@ def empty_accumulators(bin_count, target_count, width):
 	return {name: np.zeros((bin_count, target_count, width)) for name in ACCUMULATOR_NAMES}
 
 
-def add_selection(accumulators, index, components, variant_fst, selected):
+def add_selection(accumulators, index, components, selected):
 	'''
 	Add the variants of one region into the running sums, dropping the
 	variants the estimator marked unusable. A bin fills only as many columns
@@ -82,38 +82,35 @@ def add_selection(accumulators, index, components, variant_fst, selected):
 	accumulators['sum_a'][index][:columns] += np.nansum(component_a[selected], axis=0, dtype=np.float64)
 	accumulators['sum_b'][index][:columns] += np.nansum(component_b[selected], axis=0, dtype=np.float64)
 	accumulators['sum_c'][index][:columns] += np.nansum(component_c[selected], axis=0, dtype=np.float64)
-	accumulators['sum_fst'][index][:columns] += np.nansum(variant_fst[selected], axis=0, dtype=np.float64)
-	accumulators['variant_count'][index][:columns] += np.count_nonzero(~np.isnan(variant_fst[selected]), axis=0)
+	accumulators['variant_count'][index][:columns] += np.count_nonzero(~np.isnan(component_a[selected]), axis=0)
 
 
-def add_blocks(block_accumulators, index, components, variant_fst, blocks, selected, block_count):
+def add_blocks(block_accumulators, index, components, blocks, selected, block_count):
 	'''
 	Add the variants of one region into per block sums of the whole sample, so
 	that the estimate without a block is the total minus that block.
 	'''
 	component_a, component_b, component_c = components
 	column = POINT_ESTIMATE_COLUMN
-	usable = ~np.isnan(variant_fst[selected, column])
 	for name, values in (
 		('sum_a', component_a[selected, column]),
 		('sum_b', component_b[selected, column]),
 		('sum_c', component_c[selected, column]),
-		('sum_fst', variant_fst[selected, column]),
-		('variant_count', usable),
+		('variant_count', ~np.isnan(component_a[selected, column])),
 	):
 		weights = np.nan_to_num(values.astype(np.float64))
 		block_accumulators[name][index] += np.bincount(blocks, weights=weights, minlength=block_count)
 
 
-def accumulate_bin(accumulators, block_accumulators, bin_position, components, variant_fst, chunk_blocks, target_names, block_count):
+def accumulate_bin(accumulators, block_accumulators, bin_position, components, chunk_blocks, target_names, block_count):
 	for target_position, target_name in enumerate(target_names):
 		indices = chunk_blocks[target_name]
 		selected = indices >= 0
 		if not selected.any():
 			continue
 		index = (bin_position, target_position)
-		add_selection(accumulators, index, components, variant_fst, selected)
-		add_blocks(block_accumulators, index, components, variant_fst, indices[selected], selected, block_count)
+		add_selection(accumulators, index, components, selected)
+		add_blocks(block_accumulators, index, components, indices[selected], selected, block_count)
 
 
 def accumulate_chunk(accumulators, block_accumulators, genotypes, context, weights_by_bin, chunk_blocks, block_count):
@@ -122,9 +119,8 @@ def accumulate_chunk(accumulators, block_accumulators, genotypes, context, weigh
 		count_a, number_a, het_a = allele_statistics(genotypes[rows_a], weights_a)
 		count_b, number_b, het_b = allele_statistics(genotypes[rows_b], weights_b)
 		components = weir_cockerham_components(number_a, number_b, count_a, count_b, het_a, het_b)
-		variant_fst = per_variant_fst(*components)
 		accumulate_bin(
-			accumulators, block_accumulators, bin_position, components, variant_fst,
+			accumulators, block_accumulators, bin_position, components,
 			chunk_blocks, context['target_names'], block_count)
 
 
@@ -136,7 +132,7 @@ def build_context(config):
 	populations = load_populations(config['populations_path'])
 	time_bins = overlapping_time_bins(populations, config['polygon_a'], config['polygon_b'], config['genotype_source'])
 	gene_spans = load_gene_spans(config['annotation_path'], locus_gene_names(config['loci']))
-	regions = build_regions(config['loci'], gene_spans, config['flank_sizes'])
+	regions = build_regions(config['loci'], gene_spans)
 	source = open_genotypes(config['bed_prefix'], config['threads'])
 	variant_index, chromosome, position = autosomal_variants(source)
 	sample_ids, row_by_sample_id = union_sample_ids(time_bins)
@@ -146,8 +142,8 @@ def build_context(config):
 		'regions': regions,
 		'variant_index': variant_index,
 		'block_indices': block_indices(region_masks(regions, chromosome, position), config['snp_block_count']),
-		'target_names': [region['region_id'] for region in regions] + [GENOME_WIDE_TARGET],
-		'locus_by_target': {region['region_id']: region['locus'] for region in regions},
+		'target_names': [region['locus'] for region in regions] + [GENOME_WIDE_TARGET],
+		'region_by_target': {region['locus']: region for region in regions},
 		'sample_indices': select_sample_indices(source, sample_ids),
 		'bin_rows': [
 			(sample_rows(row_by_sample_id, time_bin['samples_a']), sample_rows(row_by_sample_id, time_bin['samples_b']))
@@ -159,7 +155,7 @@ def build_context(config):
 def run_time_series(config):
 	'''
 	Stream the genotypes once and return the run context together with the
-	accumulated sums, from which either estimator and either jackknife can be
+	accumulated sums, from which the estimate and either jackknife can be
 	formed.
 	'''
 	context = build_context(config)

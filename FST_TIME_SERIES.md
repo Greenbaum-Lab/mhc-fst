@@ -2,7 +2,8 @@
 
 FST between two polygon populations of `populations.json`, in focal loci and
 genome wide, over every time bin both populations define, with a jackknife
-over individuals and a jackknife over blocks of variants.
+over individuals and a jackknife over blocks of variants. The estimate is the
+Weir & Cockerham ratio of averages over the variants a locus spans.
 
 ## Running it
 
@@ -23,6 +24,13 @@ carry rather than failing later:
 		config = json.load(open('config_fst_time.json')); \
 		print(load_gene_spans(config['annotation_path'], locus_gene_names(config['loci'])))"
 
+`plot_trend_grid.py` puts every locus on one page, in a column for the trend
+expected of it, with the archaeological periods shaded and the expected time
+of change marked. It reads only the results table and `time_periods.json`, so
+copy it and them into one directory and run it there:
+
+	python plot_trend_grid.py
+
 The estimator can be checked against the one the browser uses, without any
 cluster data:
 
@@ -31,25 +39,29 @@ cluster data:
 ## Configuring loci
 
 A locus is either a set of gene symbols, spanning from the first start to the
-last end of those genes, or a chromosome with coordinates given directly:
+last end of those genes, or a chromosome with coordinates given directly. Each
+one carries what it is studied for and what is expected of it, which is what
+the figures are titled and grouped by:
 
-	{"label": "LCT", "genes": ["LCT"]}
-	{"label": "TLR6_TLR1_TLR10", "genes": ["TLR6", "TLR1", "TLR10"]}
-	{"label": "MHC", "chromosome": "6", "start": 29000000, "end": 35000000}
+	{"label": "LCT", "genes": ["LCT"],
+	 "phenotype": "lactase persistence", "trend": "low", "time_bp": 4500}
+	{"label": "MHC", "chromosome": "6", "start": 29000000, "end": 35000000,
+	 "phenotype": "infectious disease immunity", "trend": "low", "time_bp": 8500}
 
-Every locus is measured twice, over its span and over the span plus 100 kb on
-each side, and gets its own figures. Genes named by several loci are resolved
-once. Everything else in `config_fst_time.json` is the two polygons, the flank
-sizes, the number of variant blocks and the confidence level. Nothing in the
-run is random, so the same inputs always give the same numbers.
+`trend` is what the locus is expected to do against the genome wide
+background, one of high, low or neutral. `time_bp` is the year the expectation
+changes, or null where there is none. Neither enters the computation, only the
+figures. A locus is measured over its span alone. Genes named by several loci
+are resolved once. Nothing in the run is random, so the same inputs always
+give the same numbers.
 
 ## Output
 
-`results/fst_time_series.csv` has one row per time bin, target and estimator,
-with the estimate, both intervals, both standard errors, the sample counts and
-the number of variants and blocks behind it. `results/fst_jackknife.npz` keeps
+`results/fst_time_series.csv` has one row per time bin and target, with the
+estimate, both intervals, both standard errors, the sample counts and the
+number of variants and blocks behind it. `results/fst_jackknife.npz` keeps
 every leave-one-out value. `results/focal_regions.csv` records the coordinates
-each locus resolved to. Figures are named by locus, estimator and jackknife.
+each locus resolved to. Figures are named by locus and jackknife.
 
 ## Which variants are used
 
@@ -62,16 +74,6 @@ which cannot be switched off without changing the estimator.
 This means coverage differences between bins are carried into the result
 rather than filtered out. A bin whose individuals are thinly covered has
 noisier frequencies, and that noise is what the jackknives are there to show.
-
-## Choices that change the numbers
-
-**Estimator.** `ratio_of_averages` sums the Weir & Cockerham components over
-the region and divides once. `average_of_ratios` averages the per variant
-values, which is what the browser does. They differ most where variants are
-few, so a gene span differs more than the flanked version of it.
-
-**Region span.** Span against span plus 100 kb. A short gene carries very few
-variants on capture data, and few variants means a noisy estimate.
 
 ## The two jackknives
 
@@ -137,7 +139,7 @@ config asks for DARC. A symbol the annotation does not know stops the run
 before any genotype is read.
 
 **Autosomes only,** and the genome wide background includes the focal regions,
-which are a negligible fraction of it. A locus on X or Y resolves to a region
-holding no variants and produces an empty panel, so G6PD cannot be measured
-here. Hemizygous males make the diploid estimator wrong on X, which is why the
+which are a negligible fraction of it. A locus on X or Y holds no variants and
+its panel is drawn empty and labelled as such, which is what G6PD does.
+Hemizygous males make the diploid estimator wrong on X, which is why the
 chromosome is left out rather than quietly included.

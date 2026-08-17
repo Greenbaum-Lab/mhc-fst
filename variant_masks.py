@@ -17,7 +17,7 @@ def region_masks(regions, chromosome, position):
 	every autosomal variant.
 	'''
 	masks = {
-		region['region_id']: (chromosome == region['chromosome'])
+		region['locus']: (chromosome == region['chromosome'])
 		& (position >= region['start'])
 		& (position <= region['end'])
 		for region in regions
