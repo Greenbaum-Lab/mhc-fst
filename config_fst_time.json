@@ -37,7 +37,7 @@
 	],
 	"snp_block_count": 20,
 	"gene_biotypes": ["protein_coding"],
-	"min_gene_variants": 10,
+	"min_gene_variants": 1,
 	"confidence_level": 0.95,
 	"chunk_size": 10000,
 	"threads": 8,
