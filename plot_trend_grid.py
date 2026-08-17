@@ -5,6 +5,7 @@ Reads only the results table and the period list, so it can sit next to them
 and run away from the pipeline and the cluster.
 
 	python plot_trend_grid.py
+	python plot_trend_grid.py --exclude G6PD EPAS1
 
 Both inputs default to the working directory, and the figure is written there
 too.
@@ -80,11 +81,12 @@ def style_panel(axis, target_rows):
 	axis.spines['right'].set_visible(False)
 
 
-def trend_targets(table):
+def trend_targets(table, excluded):
 	'''
-	The loci of each trend column, in the order the table holds them.
+	The loci of each trend column, in the order the table holds them, without
+	the ones left out.
 	'''
-	focal = table[table['target'] != GENOME_WIDE_TARGET]
+	focal = table[(table['target'] != GENOME_WIDE_TARGET) & ~table['target'].isin(excluded)]
 	return {
 		trend: list(dict.fromkeys(focal[focal['trend'] == trend]['target']))
 		for trend in TREND_COLUMNS
@@ -102,7 +104,8 @@ def fill_column(column_axes, targets, table, background_rows, periods, uncertain
 		style_panel(axis, target_rows)
 	for axis in column_axes[len(targets):]:
 		axis.set_visible(False)
-	column_axes[len(targets) - 1].tick_params(labelbottom=True)
+	if targets:
+		column_axes[len(targets) - 1].tick_params(labelbottom=True)
 
 
 def add_column_headers(figure, axes, targets_by_trend, top):
@@ -126,8 +129,9 @@ def add_period_legend(figure, periods):
 
 def finish_layout(figure, axes, targets_by_trend, periods):
 	'''
-	Reserve a fixed height for the headers and the legend, so a grid of any
-	number of rows keeps the same margins.
+	Reserve the height the headers and the legend were given when the figure
+	was sized, so a grid of any number of rows keeps the same margins and the
+	panels keep the same height.
 	'''
 	height = figure.get_figheight()
 	bottom, top = FOOTER_INCHES / height, 1.0 - HEADER_INCHES / height
@@ -138,16 +142,16 @@ def finish_layout(figure, axes, targets_by_trend, periods):
 	figure.supylabel('$F_{ST}$', fontsize=12)
 
 
-def build_figure(table, periods, uncertainty):
+def build_figure(table, periods, uncertainty, excluded):
 	'''
 	One column per expected trend, one panel per locus, all on a shared time
 	axis running from oldest to most recent.
 	'''
-	targets_by_trend = trend_targets(table)
+	targets_by_trend = trend_targets(table, excluded)
 	row_count = max(len(targets) for targets in targets_by_trend.values())
 	figure, axes = plt.subplots(
 		row_count, len(TREND_COLUMNS), squeeze=False, sharex=True,
-		figsize=(4.2 * len(TREND_COLUMNS), PANEL_INCHES * row_count))
+		figsize=(4.2 * len(TREND_COLUMNS), PANEL_INCHES * row_count + HEADER_INCHES + FOOTER_INCHES))
 	background_rows = table[table['target'] == GENOME_WIDE_TARGET].sort_values('time_start')
 	for column_position, trend in enumerate(TREND_COLUMNS):
 		fill_column(axes[:, column_position], targets_by_trend[trend], table,
@@ -163,9 +167,10 @@ def main():
 	parser.add_argument('--periods', default='time_periods.json')
 	parser.add_argument('--output-dir', default='.')
 	parser.add_argument('--uncertainty', choices=UNCERTAINTIES, default=UNCERTAINTIES[0])
+	parser.add_argument('--exclude', nargs='*', default=[], metavar='LOCUS')
 	args = parser.parse_args()
 	table = pd.read_csv(args.results)
-	figure = build_figure(table, load_periods(args.periods), args.uncertainty)
+	figure = build_figure(table, load_periods(args.periods), args.uncertainty, args.exclude)
 	figure.savefig(pathlib.Path(args.output_dir) / f'fst_trend_grid_{args.uncertainty}.png', dpi=200)
 
 
