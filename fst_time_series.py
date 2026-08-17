@@ -6,9 +6,10 @@ The genotypes are read once. Each chunk of variants yields, for every time
 bin, the Weir & Cockerham components of every leave-one-out sample of the
 individuals, which accumulate into one sum per region. The same chunk also
 accumulates the components of the whole sample per block of variants, so that
-deleting a block later is a subtraction rather than another pass. Focal
-regions and the genome wide background share one set of leave-one-out samples
-per bin, so their intervals are comparable.
+deleting a block later is a subtraction rather than another pass, and per gene
+of the annotation, which gives a background made of genes. Focal regions and
+the genome wide background share one set of leave-one-out samples per bin, so
+their intervals are comparable.
 '''
 
 import numpy as np
@@ -18,6 +19,13 @@ from jackknife import paired_jackknife_weights, column_count, POINT_ESTIMATE_COL
 from gene_regions import load_gene_spans, build_regions, locus_gene_names
 from time_populations import load_populations, overlapping_time_bins
 from variant_masks import region_masks, block_indices, GENOME_WIDE_TARGET
+from annotation_genes import (
+	load_all_genes,
+	gene_membership,
+	chunk_pairs,
+	empty_gene_accumulators,
+	add_genes,
+)
 from genotype_source import (
 	open_genotypes,
 	autosomal_variants,
@@ -113,15 +121,18 @@ def accumulate_bin(accumulators, block_accumulators, bin_position, components, c
 		add_blocks(block_accumulators, index, components, indices[selected], selected, block_count)
 
 
-def accumulate_chunk(accumulators, block_accumulators, genotypes, context, weights_by_bin, chunk_blocks, block_count):
+def accumulate_chunk(accumulators, genotypes, context, weights_by_bin, chunk_blocks, chunk_genes, block_count):
 	for bin_position, (rows_a, rows_b) in enumerate(context['bin_rows']):
 		weights_a, weights_b = weights_by_bin[bin_position]
 		count_a, number_a, het_a = allele_statistics(genotypes[rows_a], weights_a)
 		count_b, number_b, het_b = allele_statistics(genotypes[rows_b], weights_b)
 		components = weir_cockerham_components(number_a, number_b, count_a, count_b, het_a, het_b)
 		accumulate_bin(
-			accumulators, block_accumulators, bin_position, components,
+			accumulators['targets'], accumulators['blocks'], bin_position, components,
 			chunk_blocks, context['target_names'], block_count)
+		add_genes(
+			accumulators['genes'], bin_position, components,
+			chunk_genes[0], chunk_genes[1], len(context['genes']))
 
 
 def build_context(config):
@@ -136,11 +147,14 @@ def build_context(config):
 	source = open_genotypes(config['bed_prefix'], config['threads'])
 	variant_index, chromosome, position = autosomal_variants(source)
 	sample_ids, row_by_sample_id = union_sample_ids(time_bins)
+	genes = load_all_genes(config['annotation_path'], config['gene_biotypes'])
 	return {
 		'source': source,
 		'time_bins': time_bins,
 		'regions': regions,
 		'variant_index': variant_index,
+		'genes': genes,
+		'gene_membership': gene_membership(genes, chromosome, position),
 		'block_indices': block_indices(region_masks(regions, chromosome, position), config['snp_block_count']),
 		'target_names': [region['locus'] for region in regions] + [GENOME_WIDE_TARGET],
 		'region_by_target': {region['locus']: region for region in regions},
@@ -152,23 +166,35 @@ def build_context(config):
 	}
 
 
+def all_accumulators(context, block_count):
+	'''
+	The three sets of sums a run fills: per target and leave-one-out sample,
+	per target and block of variants, and per gene of the annotation.
+	'''
+	bin_count = len(context['time_bins'])
+	target_count = len(context['target_names'])
+	return {
+		'targets': empty_accumulators(bin_count, target_count, max(bin_columns(context['time_bins']))),
+		'blocks': empty_accumulators(bin_count, target_count, block_count),
+		'genes': empty_gene_accumulators(bin_count, len(context['genes']), ACCUMULATOR_NAMES),
+	}
+
+
 def run_time_series(config):
 	'''
 	Stream the genotypes once and return the run context together with the
-	accumulated sums, from which the estimate and either jackknife can be
-	formed.
+	accumulated sums, from which the estimate, either jackknife and the
+	background of genes can be formed.
 	'''
 	context = build_context(config)
 	block_count = config['snp_block_count']
-	target_count = len(context['target_names'])
 	weights_by_bin = bin_weights(context['time_bins'])
-	accumulators = empty_accumulators(
-		len(context['time_bins']), target_count, max(bin_columns(context['time_bins'])))
-	block_accumulators = empty_accumulators(len(context['time_bins']), target_count, block_count)
+	accumulators = all_accumulators(context, block_count)
 	for start, end in chunk_bounds(len(context['variant_index']), config['chunk_size']):
 		genotypes = read_genotypes(
 			context['source'], context['sample_indices'], context['variant_index'][start:end])
 		chunk_blocks = {name: indices[start:end] for name, indices in context['block_indices'].items()}
+		chunk_genes = chunk_pairs(context['gene_membership'], start, end)
 		accumulate_chunk(
-			accumulators, block_accumulators, genotypes, context, weights_by_bin, chunk_blocks, block_count)
-	return context, accumulators, block_accumulators
+			accumulators, genotypes, context, weights_by_bin, chunk_blocks, chunk_genes, block_count)
+	return context, accumulators

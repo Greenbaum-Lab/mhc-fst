@@ -14,7 +14,8 @@ from, so the scripts are found wherever the repository sits. Step by step,
 from the same directory:
 
 	python run_fst_time_series.py --config config_fst_time.json
-	python plot_fst_time_series.py --results results/fst_time_series.csv --output-dir results
+	python plot_fst_time_series.py --results results/fst_time_series.csv \
+		--gene-background results/gene_background.csv --output-dir results
 
 After editing the locus list, resolve it before submitting a job. This reads
 only the annotation, takes seconds, and names a symbol the annotation does not
@@ -26,10 +27,14 @@ carry rather than failing later:
 
 `plot_trend_grid.py` puts every locus on one page, in a column for the trend
 expected of it, with the archaeological periods shaded and the expected time
-of change marked. It reads only the results table and `time_periods.json`, so
-copy it and them into one directory and run it there:
+of change marked. The top panel of each column averages that column's loci at
+each time bin, with error bars spanning the loci rather than the uncertainty
+of any one of them, so it shows whether the loci of a trend agree. It reads
+only the results table and `time_periods.json`, so copy it and them into one
+directory and run it there:
 
 	python plot_trend_grid.py
+	python plot_trend_grid.py --exclude G6PD EPAS1
 
 The estimator can be checked against the one the browser uses, without any
 cluster data:
@@ -62,6 +67,35 @@ estimate, both intervals, both standard errors, the sample counts and the
 number of variants and blocks behind it. `results/fst_jackknife.npz` keeps
 every leave-one-out value. `results/focal_regions.csv` records the coordinates
 each locus resolved to. Figures are named by locus and jackknife.
+
+`results/fst_per_gene.csv` holds every gene of the annotation, one row per
+gene and time bin, with its own FST and the variants it rests on.
+`results/fst_per_gene.npz` holds the sums those came from, so any set of genes
+can be recombined without the genotypes. `results/gene_background.csv` is the
+mean over genes at each time bin, which the figures draw.
+
+## The background of genes
+
+Every gene of the annotation is measured, not only the focal loci, and the
+mean over those genes is drawn beside each locus. The genome wide line is a
+different kind of thing: it pools a million variants into one number, where a
+gene holds a few dozen, so a locus sitting above or below it may only be
+showing that genes are not the genome. Averaging over genes compares like with
+like.
+
+The error bars on that mean are the spread between genes, not the uncertainty
+of any one of them. Only genes holding at least `min_gene_variants` variants
+count towards it, since a gene measured from two variants would otherwise
+widen the spread without adding anything. Every gene is written out whatever
+its count, so the threshold can be changed after the fact from the saved
+table.
+
+A gene here is a `gene` feature of the annotation whose `gene_type` is one of
+`gene_biotypes`, which is `protein_coding` alone, so pseudogenes and long
+non-coding genes are left out of the background and out of the saved table.
+Adding a biotype is a config edit. The span runs from the first base of the
+gene to its last, introns and untranslated regions included, and a variant
+inside two overlapping genes counts for both.
 
 ## Which variants are used
 
@@ -105,6 +139,13 @@ Every replicate then lands above the estimate, by more than the replicates
 spread among themselves, so the percentile interval sits entirely above the
 estimate and reflecting it puts the interval entirely below. Both miss. A
 leave-one-out sample holds nobody twice and has neither problem.
+
+**Across loci.** The top panel of each column of the trend grid averages that
+column's loci at each time bin, and its error bars are the spread between
+those loci, not the uncertainty of any one of them. They answer whether the
+loci of a trend agree with each other, which is a different question from
+either jackknife, and they say nothing about how well each locus is measured.
+A column holding one locus has no spread and no bars.
 
 ## Assumptions worth knowing
 

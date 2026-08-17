@@ -17,4 +17,5 @@ python run_fst_time_series.py \
 
 python plot_fst_time_series.py \
 	--results results/fst_time_series.csv \
+	--gene-background results/gene_background.csv \
 	--output-dir results
