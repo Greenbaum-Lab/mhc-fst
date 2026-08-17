@@ -147,7 +147,7 @@ def build_context(config):
 	source = open_genotypes(config['bed_prefix'], config['threads'])
 	variant_index, chromosome, position = autosomal_variants(source)
 	sample_ids, row_by_sample_id = union_sample_ids(time_bins)
-	genes = load_all_genes(config['annotation_path'])
+	genes = load_all_genes(config['annotation_path'], config['gene_biotypes'])
 	return {
 		'source': source,
 		'time_bins': time_bins,

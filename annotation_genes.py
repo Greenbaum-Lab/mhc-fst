@@ -19,10 +19,14 @@ import numpy as np
 from gene_regions import parse_attributes
 
 
-def load_all_genes(annotation_path):
+def load_all_genes(annotation_path, gene_biotypes):
 	'''
-	Name, chromosome, start and end of every gene feature of the annotation.
+	Name, chromosome, start and end of every gene feature of the annotation
+	whose biotype was asked for. The biotype is the annotation's own gene_type,
+	so pseudogenes and non-coding genes are left out by naming only the
+	biotypes wanted.
 	'''
+	wanted = set(gene_biotypes)
 	genes = []
 	opener = gzip.open if annotation_path.endswith('.gz') else open
 	with opener(annotation_path, 'rt') as annotation_file:
@@ -32,11 +36,16 @@ def load_all_genes(annotation_path):
 			fields = line.rstrip('\n').split('\t')
 			if len(fields) < 9 or fields[2] != 'gene':
 				continue
+			attributes = parse_attributes(fields[8])
+			if attributes.get('gene_type') not in wanted:
+				continue
 			genes.append((
-				parse_attributes(fields[8]).get('gene_name'),
+				attributes.get('gene_name'),
 				fields[0].replace('chr', ''),
 				int(fields[3]),
 				int(fields[4])))
+	if not genes:
+		raise ValueError(f'No genes of biotype {sorted(wanted)} in {annotation_path}')
 	return genes
 
 

@@ -90,11 +90,12 @@ widen the spread without adding anything. Every gene is written out whatever
 its count, so the threshold can be changed after the fact from the saved
 table.
 
-A gene here is a `gene` feature of the annotation, so the span runs from the
-first base to the last of the gene, introns and untranslated regions included,
-and every biotype the annotation carries is in: pseudogenes and non-coding
-genes as well as protein coding ones. A variant inside two overlapping genes
-counts for both.
+A gene here is a `gene` feature of the annotation whose `gene_type` is one of
+`gene_biotypes`, which is `protein_coding` alone, so pseudogenes and long
+non-coding genes are left out of the background and out of the saved table.
+Adding a biotype is a config edit. The span runs from the first base of the
+gene to its last, introns and untranslated regions included, and a variant
+inside two overlapping genes counts for both.
 
 ## Which variants are used
 
