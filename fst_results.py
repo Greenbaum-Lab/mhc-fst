@@ -79,10 +79,11 @@ def result_row(config, context, accumulators, block_accumulators, values, block_
 	}
 
 
-def build_table(config, context, accumulators, block_accumulators):
+def build_table(config, context, all_sums):
 	'''
 	The results table, one row per time bin and target.
 	'''
+	accumulators, block_accumulators = all_sums['targets'], all_sums['blocks']
 	values = estimator_values(accumulators)
 	block_values = estimator_values(delete_block_sums(accumulators, block_accumulators))
 	positions = itertools.product(range(len(context['time_bins'])), range(len(context['target_names'])))
@@ -93,13 +94,14 @@ def build_table(config, context, accumulators, block_accumulators):
 	return pd.DataFrame(rows, columns=TABLE_COLUMNS)
 
 
-def save_jackknife_values(output_path, context, accumulators, block_accumulators):
+def save_jackknife_values(output_path, context, all_sums):
 	'''
 	The value of every leave-one-out sample, kept so later comparisons between
 	a region and the background do not need the genotypes again. Column zero
 	of the individual array is the estimate, then one column per individual of
 	the first population and one per individual of the second.
 	'''
+	accumulators, block_accumulators = all_sums['targets'], all_sums['blocks']
 	np.savez(
 		output_path,
 		time_start=np.array([time_bin['time_start'] for time_bin in context['time_bins']]),

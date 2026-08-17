@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 from statistics import NormalDist
 
 GENOME_WIDE_TARGET = 'genome_wide'
@@ -25,6 +26,7 @@ TREND_COLUMNS = ['high', 'low', 'neutral']
 UNCERTAINTIES = ['snp_blocks', 'individuals']
 FOCAL_COLOR = '#c0392b'
 MEAN_COLOR = '#1f4e79'
+GENE_BACKGROUND_COLOR = '#2e7d32'
 BACKGROUND_COLOR = 'black'
 PERIOD_COLORS = ['#4c72b0', '#dd8452', '#55a868', '#c44e52', '#8172b3']
 PERIOD_ALPHA = 0.13
@@ -53,6 +55,19 @@ def shade_periods(axis, periods):
 			color=PERIOD_COLORS[position % len(PERIOD_COLORS)], alpha=PERIOD_ALPHA, linewidth=0)
 
 
+def draw_gene_background(axis, gene_background):
+	'''
+	The mean over every gene of the annotation, with error bars spanning the
+	genes, which is the background a focal locus is compared against.
+	'''
+	axis.errorbar(
+		bin_midpoints(gene_background), gene_background['fst'],
+		yerr=[gene_background['fst'] - gene_background['ci_low'],
+		      gene_background['ci_high'] - gene_background['fst']],
+		color=GENE_BACKGROUND_COLOR, linewidth=1.2, marker='s', markersize=3,
+		capsize=2.5, elinewidth=0.9)
+
+
 def draw_expected_time(axis, time_bp):
 	'''
 	The time the expectation changes, for the loci that have one.
@@ -62,10 +77,11 @@ def draw_expected_time(axis, time_bp):
 	axis.axvline(time_bp / 1000.0, color='0.15', linestyle=':', linewidth=1.3)
 
 
-def draw_panel(axis, target_rows, background_rows, periods, uncertainty):
+def draw_panel(axis, target_rows, background_rows, gene_background, periods, uncertainty):
 	shade_periods(axis, periods)
 	axis.plot(bin_midpoints(background_rows), background_rows['fst'],
 	          color=BACKGROUND_COLOR, linestyle='--', linewidth=1.0)
+	draw_gene_background(axis, gene_background)
 	axis.plot(bin_midpoints(target_rows), target_rows['fst'], color=FOCAL_COLOR, linewidth=1.5)
 	axis.fill_between(
 		bin_midpoints(target_rows), target_rows[f'ci_low_{uncertainty}'], target_rows[f'ci_high_{uncertainty}'],
@@ -92,13 +108,14 @@ def mean_across_targets(table, targets, confidence_level):
 	return summary.sort_values('time_start')
 
 
-def draw_mean_panel(axis, summary, background_rows, periods):
+def draw_mean_panel(axis, summary, background_rows, gene_background, periods):
 	'''
 	The loci of one column averaged, with error bars across them.
 	'''
 	shade_periods(axis, periods)
 	axis.plot(bin_midpoints(background_rows), background_rows['fst'],
 	          color=BACKGROUND_COLOR, linestyle='--', linewidth=1.0)
+	draw_gene_background(axis, gene_background)
 	axis.errorbar(
 		bin_midpoints(summary), summary['fst'],
 		yerr=[summary['fst'] - summary['ci_low'], summary['ci_high'] - summary['fst']],
@@ -135,7 +152,7 @@ def trend_targets(table, excluded):
 	}
 
 
-def fill_column(column_axes, targets, table, background_rows, periods, uncertainty, confidence_level):
+def fill_column(column_axes, targets, table, background_rows, gene_background, periods, uncertainty, confidence_level):
 	'''
 	The loci of one column averaged in the top panel and drawn one per panel
 	below it, with the years read off the lowest panel the column fills rather
@@ -143,11 +160,11 @@ def fill_column(column_axes, targets, table, background_rows, periods, uncertain
 	'''
 	if targets:
 		summary = mean_across_targets(table, targets, confidence_level)
-		draw_mean_panel(column_axes[0], summary, background_rows, periods)
+		draw_mean_panel(column_axes[0], summary, background_rows, gene_background, periods)
 		style_mean_panel(column_axes[0], summary)
 	for axis, target in zip(column_axes[1:], targets):
 		target_rows = table[table['target'] == target].sort_values('time_start')
-		draw_panel(axis, target_rows, background_rows, periods, uncertainty)
+		draw_panel(axis, target_rows, background_rows, gene_background, periods, uncertainty)
 		style_panel(axis, target_rows)
 	for axis in column_axes[len(targets) + 1:]:
 		axis.set_visible(False)
@@ -170,6 +187,9 @@ def add_period_legend(figure, periods):
 		      label=period['period'].replace('_', ' '))
 		for position, period in enumerate(periods)
 	]
+	handles.append(Line2D([], [], color=BACKGROUND_COLOR, linestyle='--', label='genome wide'))
+	handles.append(Line2D([], [], color=GENE_BACKGROUND_COLOR, marker='s', markersize=3,
+	                      label='mean over all annotated genes'))
 	figure.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, 0.0),
 	              ncol=len(periods), frameon=False, fontsize=9)
 
@@ -189,7 +209,7 @@ def finish_layout(figure, axes, targets_by_trend, periods):
 	figure.supylabel('$F_{ST}$', fontsize=12)
 
 
-def build_figure(table, periods, uncertainty, excluded, confidence_level):
+def build_figure(table, gene_background, periods, uncertainty, excluded, confidence_level):
 	'''
 	One column per expected trend, the loci of that column averaged in its top
 	panel and drawn one per panel below, all on a shared time axis running
@@ -203,7 +223,7 @@ def build_figure(table, periods, uncertainty, excluded, confidence_level):
 	background_rows = table[table['target'] == GENOME_WIDE_TARGET].sort_values('time_start')
 	for column_position, trend in enumerate(TREND_COLUMNS):
 		fill_column(axes[:, column_position], targets_by_trend[trend], table,
-		            background_rows, periods, uncertainty, confidence_level)
+		            background_rows, gene_background, periods, uncertainty, confidence_level)
 	axes[0, 0].set_xlim(table['time_end'].max() / 1000.0, 0)
 	finish_layout(figure, axes, targets_by_trend, periods)
 	return figure
@@ -213,14 +233,17 @@ def main():
 	parser = argparse.ArgumentParser(description='All loci on one page, in a column per expected trend')
 	parser.add_argument('--results', default='fst_time_series.csv')
 	parser.add_argument('--periods', default='time_periods.json')
+	parser.add_argument('--gene-background', default='gene_background.csv')
 	parser.add_argument('--output-dir', default='.')
 	parser.add_argument('--uncertainty', choices=UNCERTAINTIES, default=UNCERTAINTIES[0])
 	parser.add_argument('--exclude', nargs='*', default=[], metavar='LOCUS')
 	parser.add_argument('--confidence-level', type=float, default=0.95)
 	args = parser.parse_args()
 	table = pd.read_csv(args.results)
+	gene_background = pd.read_csv(args.gene_background).sort_values('time_start')
 	figure = build_figure(
-		table, load_periods(args.periods), args.uncertainty, args.exclude, args.confidence_level)
+		table, gene_background, load_periods(args.periods), args.uncertainty,
+		args.exclude, args.confidence_level)
 	figure.savefig(pathlib.Path(args.output_dir) / f'fst_trend_grid_{args.uncertainty}.png', dpi=200)
 
 

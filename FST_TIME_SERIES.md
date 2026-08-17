@@ -14,7 +14,8 @@ from, so the scripts are found wherever the repository sits. Step by step,
 from the same directory:
 
 	python run_fst_time_series.py --config config_fst_time.json
-	python plot_fst_time_series.py --results results/fst_time_series.csv --output-dir results
+	python plot_fst_time_series.py --results results/fst_time_series.csv \
+		--gene-background results/gene_background.csv --output-dir results
 
 After editing the locus list, resolve it before submitting a job. This reads
 only the annotation, takes seconds, and names a symbol the annotation does not
@@ -66,6 +67,34 @@ estimate, both intervals, both standard errors, the sample counts and the
 number of variants and blocks behind it. `results/fst_jackknife.npz` keeps
 every leave-one-out value. `results/focal_regions.csv` records the coordinates
 each locus resolved to. Figures are named by locus and jackknife.
+
+`results/fst_per_gene.csv` holds every gene of the annotation, one row per
+gene and time bin, with its own FST and the variants it rests on.
+`results/fst_per_gene.npz` holds the sums those came from, so any set of genes
+can be recombined without the genotypes. `results/gene_background.csv` is the
+mean over genes at each time bin, which the figures draw.
+
+## The background of genes
+
+Every gene of the annotation is measured, not only the focal loci, and the
+mean over those genes is drawn beside each locus. The genome wide line is a
+different kind of thing: it pools a million variants into one number, where a
+gene holds a few dozen, so a locus sitting above or below it may only be
+showing that genes are not the genome. Averaging over genes compares like with
+like.
+
+The error bars on that mean are the spread between genes, not the uncertainty
+of any one of them. Only genes holding at least `min_gene_variants` variants
+count towards it, since a gene measured from two variants would otherwise
+widen the spread without adding anything. Every gene is written out whatever
+its count, so the threshold can be changed after the fact from the saved
+table.
+
+A gene here is a `gene` feature of the annotation, so the span runs from the
+first base to the last of the gene, introns and untranslated regions included,
+and every biotype the annotation carries is in: pseudogenes and non-coding
+genes as well as protein coding ones. A variant inside two overlapping genes
+counts for both.
 
 ## Which variants are used
 

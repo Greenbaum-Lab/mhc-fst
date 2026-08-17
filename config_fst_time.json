@@ -36,6 +36,7 @@
 		{"label": "GNPAT", "genes": ["GNPAT"], "phenotype": "ether lipid synthesis", "trend": "neutral", "time_bp": null}
 	],
 	"snp_block_count": 20,
+	"min_gene_variants": 10,
 	"confidence_level": 0.95,
 	"chunk_size": 10000,
 	"threads": 8,
