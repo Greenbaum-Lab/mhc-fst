@@ -44,6 +44,7 @@ def weir_cockerham_components(an1, an2, ac1, ac2, het1, het2):
 def per_variant_fst(a, b, c):
 	'''
 	Per-variant FST clipped at zero, the value delphi/analyses/fst.py returns.
+	Kept for check_fst_parity.py, which asserts the components rebuild it.
 	'''
 	with np.errstate(invalid='ignore', divide='ignore'):
 		return np.maximum(0.0, a / (a + b + c))
@@ -53,16 +54,10 @@ def ratio_of_averages(sum_a, sum_b, sum_c):
 	'''
 	Multi-locus FST as sum(a) / sum(a + b + c) over the variants of a region,
 	the standard Weir & Cockerham combination, clipped at zero once at the end.
+	Combining the components rather than averaging per variant ratios is what
+	keeps a region of few variants from being dominated by single variants.
 	'''
 	denominator = sum_a + sum_b + sum_c
 	with np.errstate(invalid='ignore', divide='ignore'):
 		return np.where(denominator != 0.0, np.maximum(0.0, sum_a / denominator), np.nan)
 
-
-def average_of_ratios(sum_per_variant_fst, variant_count):
-	'''
-	Multi-locus FST as the mean of the per-variant values, the combination
-	delphi/analyses/fst.py uses, where each variant is clipped at zero first.
-	'''
-	with np.errstate(invalid='ignore', divide='ignore'):
-		return np.where(variant_count > 0, sum_per_variant_fst / variant_count, np.nan)

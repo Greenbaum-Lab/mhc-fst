@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from variant_masks import GENOME_WIDE_TARGET
 
+FOCAL_COLOR = '#c0392b'
 BACKGROUND_COLOR = 'black'
 BACKGROUND_LABEL = 'genome wide'
 UNCERTAINTIES = {
@@ -41,17 +42,6 @@ def annotate_sample_counts(axis, background_rows, uncertainty):
 			fontsize=8, ha='center', color='0.4')
 
 
-def draw_series(axis, rows, uncertainty):
-	focal_targets = sorted(set(rows['target']) - {GENOME_WIDE_TARGET})
-	colors = plt.cm.Dark2.colors
-	for position, target in enumerate(focal_targets):
-		target_rows = rows[rows['target'] == target].sort_values('time_start')
-		plot_target(axis, target_rows, target, colors[position % len(colors)], '-', uncertainty)
-	background_rows = rows[rows['target'] == GENOME_WIDE_TARGET].sort_values('time_start')
-	plot_target(axis, background_rows, BACKGROUND_LABEL, BACKGROUND_COLOR, '--', uncertainty)
-	annotate_sample_counts(axis, background_rows, uncertainty)
-
-
 def style_axis(axis, title):
 	axis.set_xlabel('Thousand years before present')
 	axis.set_ylabel('$F_{ST}$')
@@ -63,42 +53,35 @@ def style_axis(axis, title):
 	axis.legend(frameon=False, fontsize=9)
 
 
-def plot_panel(rows, title, output_path, uncertainty):
+def panel_title(target_rows):
+	'''
+	The locus, what it is studied for, and the trend expected of it.
+	'''
+	first = target_rows.iloc[0]
+	return f'{first["target"]}, {first["phenotype"]}, expected {first["trend"]}'
+
+
+def plot_panel(target_rows, background_rows, output_path, uncertainty):
 	figure, axis = plt.subplots(figsize=(8, 5))
-	draw_series(axis, rows, uncertainty)
-	style_axis(axis, title)
+	plot_target(axis, target_rows, target_rows.iloc[0]['target'], FOCAL_COLOR, '-', uncertainty)
+	plot_target(axis, background_rows, BACKGROUND_LABEL, BACKGROUND_COLOR, '--', uncertainty)
+	annotate_sample_counts(axis, background_rows, uncertainty)
+	style_axis(axis, panel_title(target_rows))
 	figure.tight_layout()
 	figure.savefig(output_path, dpi=200)
 	plt.close(figure)
 
 
-def panel_title(rows, locus, uncertainty):
-	first = rows.iloc[0]
-	return (f'{locus}, {first["polygon_a"]} vs {first["polygon_b"]}, '
-	        f'{first["estimator"].replace("_", " ")}\n{UNCERTAINTIES[uncertainty]}')
-
-
-def locus_panels(table):
-	'''
-	The rows of each figure: one locus against the genome wide background, for
-	every estimator.
-	'''
-	loci = sorted(set(table['locus'].fillna('')) - {''})
-	for estimator, rows in table.groupby('estimator'):
-		background = rows[rows['target'] == GENOME_WIDE_TARGET]
-		for locus in loci:
-			yield locus, estimator, pd.concat([rows[rows['locus'] == locus], background])
-
-
 def plot_all_panels(table, output_dir):
 	'''
-	One figure per locus, estimator and jackknife, each holding the spans of
-	that locus and the genome wide background.
+	One figure per locus and jackknife, each holding that locus and the genome
+	wide background.
 	'''
-	for locus, estimator, rows in locus_panels(table):
+	background_rows = table[table['target'] == GENOME_WIDE_TARGET].sort_values('time_start')
+	for target in sorted(set(table['target']) - {GENOME_WIDE_TARGET}):
+		target_rows = table[table['target'] == target].sort_values('time_start')
 		for uncertainty in UNCERTAINTIES:
-			output_path = output_dir / f'fst_{locus}_{estimator}_{uncertainty}.png'
-			plot_panel(rows, panel_title(rows, locus, uncertainty), output_path, uncertainty)
+			plot_panel(target_rows, background_rows, output_dir / f'fst_{target}_{uncertainty}.png', uncertainty)
 
 
 def main():
