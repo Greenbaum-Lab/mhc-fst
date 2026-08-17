@@ -36,6 +36,12 @@ directory and run it there:
 	python plot_trend_grid.py
 	python plot_trend_grid.py --exclude G6PD EPAS1
 
+`manhattan_genes.py` scans every gene of a run, one figure per time bin,
+written into a folder of its own:
+
+	python manhattan_genes.py --per-gene results/fst_per_gene.csv \
+		--output-dir results/manhattan
+
 The estimator can be checked against the one the browser uses, without any
 cluster data:
 
@@ -146,6 +152,34 @@ those loci, not the uncertainty of any one of them. They answer whether the
 loci of a trend agree with each other, which is a different question from
 either jackknife, and they say nothing about how well each locus is measured.
 A column holding one locus has no spread and no bars.
+
+## Scanning every gene
+
+`manhattan_genes.py` asks which genes stand out, and writes
+`manhattan/gene_significance.csv` with a p and q value for every gene,
+`manhattan/top_genes.csv` with the named ones, and one figure per time bin.
+
+A gene measured from twenty variants scatters far more than one measured from
+six hundred, so genes are ranked within strata of variant count, ten by
+default. Within a stratum the null is the bulk of the genes themselves, its
+centre and spread taken from the median and the median absolute deviation so
+that the outliers being looked for do not widen the null they are measured
+against. A gene's p value is the normal tail beyond its distance from that
+centre, and Benjamini Hochberg turns those into q values.
+
+Ranking a gene against the empirical distribution of the others cannot serve
+here, because a p value read off the ranks is uniform by construction and
+every q value comes back at one. That fraction is still written out, as
+`percentile`, since it says plainly where a gene sits.
+
+Two assumptions come with the test. Most genes are taken to be ordinary, which
+is what makes the bulk a null, and the tail is taken to be normal, which the
+skew of an FST distribution only approximately obeys. Read a p value as a way
+of ordering candidates rather than as a precise probability.
+
+The axis is capped, at 30 by default, and genes beyond it are drawn as
+triangles with their number given in the title, so one gene far out in the
+tail does not flatten the rest.
 
 ## Assumptions worth knowing
 
