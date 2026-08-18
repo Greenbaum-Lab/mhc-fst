@@ -1,7 +1,7 @@
 import json
 import argparse
-from assign_populations import assign_populations
-from subset_bed import write_subset_bed
+from window_scan.assign_populations import assign_populations
+from window_scan.subset_bed import write_subset_bed
 
 
 def load_config(config_path):

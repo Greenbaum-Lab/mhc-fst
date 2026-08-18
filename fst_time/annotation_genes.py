@@ -16,7 +16,7 @@ the spread across genes is what this background is for.
 import gzip
 import numpy as np
 
-from gene_regions import parse_attributes
+from fst_time.gene_regions import parse_attributes
 
 
 def load_all_genes(annotation_path, gene_biotypes):

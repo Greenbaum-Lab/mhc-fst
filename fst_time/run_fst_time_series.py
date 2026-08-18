@@ -2,9 +2,9 @@ import json
 import pathlib
 import argparse
 
-from fst_time_series import run_time_series
-from fst_results import build_table, save_jackknife_values, save_regions
-from gene_background import gene_table, background_table, save_gene_sums
+from fst_time.time_series import run_time_series
+from fst_time.results import build_table, save_jackknife_values, save_regions
+from fst_time.gene_background import gene_table, background_table, save_gene_sums
 
 
 def load_config(config_path):

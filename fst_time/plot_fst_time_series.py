@@ -3,7 +3,7 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from variant_masks import GENOME_WIDE_TARGET
+from fst_time.variant_masks import GENOME_WIDE_TARGET
 
 FOCAL_COLOR = '#c0392b'
 GENE_BACKGROUND_COLOR = '#2e7d32'

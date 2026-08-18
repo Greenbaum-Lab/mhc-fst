@@ -10,6 +10,8 @@ eval "$(conda shell.bash hook)"
 conda activate adna
 
 WORK_DIR=/sci/labs/gilig/lab_share/adna_db/ohad_mhc
+REPO_DIR=${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
+cd $REPO_DIR
 FST_DIR=$WORK_DIR/fst/100k_window
 SIGNIF_DIR=$WORK_DIR/fst/100k_window/signific
 OUTPUT_DIR=$WORK_DIR/plots/outliers
@@ -22,7 +24,7 @@ mkdir -p $OUTPUT_DIR
 for bin_label in "${BINS[@]}"; do
 	for stat_index in 0 1 2 3 4 5; do
 		stat_name=${STAT_NAMES[$stat_index]}
-		python $WORK_DIR/plot_outliers.py \
+		python -m window_scan.plot_outliers \
 			--fst-dir $FST_DIR \
 			--bin $bin_label \
 			--chromosomes $(seq 1 22) \

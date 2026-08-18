@@ -9,7 +9,7 @@ import ast
 import argparse
 import numpy as np
 
-from fst_core import weir_cockerham_components, per_variant_fst
+from fst_time.fst_core import weir_cockerham_components, per_variant_fst
 
 DEFAULT_REFERENCE_PATH = '../delphi/analyses/fst.py'
 REFERENCE_FUNCTION = '_compute_fst'

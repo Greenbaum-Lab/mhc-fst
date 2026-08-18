@@ -14,19 +14,19 @@ their intervals are comparable.
 
 import numpy as np
 
-from fst_core import weir_cockerham_components
-from jackknife import paired_jackknife_weights, column_count, POINT_ESTIMATE_COLUMN
-from gene_regions import load_gene_spans, build_regions, locus_gene_names
-from time_populations import load_populations, overlapping_time_bins
-from variant_masks import region_masks, block_indices, GENOME_WIDE_TARGET
-from annotation_genes import (
+from fst_time.fst_core import weir_cockerham_components
+from fst_time.jackknife import paired_jackknife_weights, column_count, POINT_ESTIMATE_COLUMN
+from fst_time.gene_regions import load_gene_spans, build_regions, locus_gene_names
+from fst_time.time_populations import load_populations, overlapping_time_bins
+from fst_time.variant_masks import region_masks, block_indices, GENOME_WIDE_TARGET
+from fst_time.annotation_genes import (
 	load_all_genes,
 	gene_membership,
 	chunk_pairs,
 	empty_gene_accumulators,
 	add_genes,
 )
-from genotype_source import (
+from fst_time.genotype_source import (
 	open_genotypes,
 	autosomal_variants,
 	select_sample_indices,

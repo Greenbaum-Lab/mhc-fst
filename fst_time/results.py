@@ -10,8 +10,8 @@ import itertools
 import numpy as np
 import pandas as pd
 
-from fst_core import ratio_of_averages
-from jackknife import individual_standard_error, block_standard_error, interval, POINT_ESTIMATE_COLUMN
+from fst_time.fst_core import ratio_of_averages
+from fst_time.jackknife import individual_standard_error, block_standard_error, interval, POINT_ESTIMATE_COLUMN
 
 TABLE_COLUMNS = [
 	'polygon_a', 'polygon_b', 'time_start', 'time_end',
