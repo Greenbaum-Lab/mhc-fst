@@ -5,24 +5,34 @@ genome wide, over every time bin both populations define, with a jackknife
 over individuals and a jackknife over blocks of variants. The estimate is the
 Weir & Cockerham ratio of averages over the variants a locus spans.
 
+## Layout
+
+The repository holds two projects, each in its own folder with the code, the
+configuration and the job scripts it needs. `fst_time` is this one. The older
+window scan lives in `window_scan` and shares only two helpers with it, the
+genomic axis and the Benjamini Hochberg procedure, which `manhattan_genes.py`
+imports from there rather than repeating.
+
+Both are Python packages, so their entry points run as modules from the
+repository root and never care where the clone sits.
+
 ## Running it
 
-	sbatch fst_time_series.sh
+	sbatch fst_time/fst_time_series.sh
 
-Submit from inside the clone. The job takes the directory it was submitted
-from, so the scripts are found wherever the repository sits. Step by step,
-from the same directory:
+Submit from the repository root. The job takes the directory it was submitted
+from. Step by step, from the same place:
 
-	python run_fst_time_series.py --config config_fst_time.json
-	python plot_fst_time_series.py --results results/fst_time_series.csv \
+	python -m fst_time.run_fst_time_series --config fst_time/config_fst_time.json
+	python -m fst_time.plot_fst_time_series --results results/fst_time_series.csv \
 		--gene-background results/gene_background.csv --output-dir results
 
 After editing the locus list, resolve it before submitting a job. This reads
 only the annotation, takes seconds, and names a symbol the annotation does not
 carry rather than failing later:
 
-	python -c "import json; from gene_regions import load_gene_spans, locus_gene_names; \
-		config = json.load(open('config_fst_time.json')); \
+	python -c "import json; from fst_time.gene_regions import load_gene_spans, locus_gene_names; \
+		config = json.load(open('fst_time/config_fst_time.json')); \
 		print(load_gene_spans(config['annotation_path'], locus_gene_names(config['loci'])))"
 
 `plot_trend_grid.py` puts every locus on one page, in a column for the trend
@@ -30,8 +40,8 @@ expected of it, with the archaeological periods shaded and the expected time
 of change marked. The top panel of each column averages that column's loci at
 each time bin, with error bars spanning the loci rather than the uncertainty
 of any one of them, so it shows whether the loci of a trend agree. It reads
-only the results table and `time_periods.json`, so copy it and them into one
-directory and run it there:
+only the results table and `fst_time/time_periods.json`, so copy it and them
+into one directory and run it there:
 
 	python plot_trend_grid.py
 	python plot_trend_grid.py --exclude G6PD EPAS1
@@ -39,13 +49,13 @@ directory and run it there:
 `manhattan_genes.py` scans every gene of a run, one figure per time bin,
 written into a folder of its own:
 
-	python manhattan_genes.py --per-gene results/fst_per_gene.csv \
+	python -m fst_time.manhattan_genes --per-gene results/fst_per_gene.csv \
 		--output-dir results/manhattan
 
 The estimator can be checked against the one the browser uses, without any
 cluster data:
 
-	python check_fst_parity.py --reference ../delphi/analyses/fst.py
+	python -m fst_time.check_fst_parity --reference ../delphi/analyses/fst.py
 
 ## Configuring loci
 

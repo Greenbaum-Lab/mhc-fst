@@ -10,6 +10,8 @@ eval "$(conda shell.bash hook)"
 conda activate adna
 
 WORK_DIR=/sci/labs/gilig/lab_share/adna_db/ohad_mhc
+REPO_DIR=${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
+cd $REPO_DIR
 
 BINS=(1000_2000 2000_3000 3000_4000 4000_5000 5000_6000 6000_7000 7000_8000 8000_9000 9000_10000)
 STAT_NAMES=(wc wc_norm hud hud_norm nei nei_norm)
@@ -19,7 +21,7 @@ mkdir -p $WORK_DIR/plots
 for bin_label in "${BINS[@]}"; do
 	for stat_index in 0 1 2 3 4 5; do
 		stat_name=${STAT_NAMES[$stat_index]}
-		python $WORK_DIR/manhattan.py \
+		python -m window_scan.manhattan \
 			--fst-dir $WORK_DIR/fst/100k_window \
 			--bin $bin_label \
 			--chromosomes $(seq 1 22) \

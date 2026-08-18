@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from statistics import NormalDist
 
-from fst_core import ratio_of_averages
+from fst_time.fst_core import ratio_of_averages
 
 GENE_TABLE_COLUMNS = ['gene', 'chromosome', 'start', 'end', 'time_start', 'time_end', 'fst', 'n_variants']
 BACKGROUND_COLUMNS = ['time_start', 'time_end', 'fst', 'ci_low', 'ci_high', 'standard_error', 'n_genes']

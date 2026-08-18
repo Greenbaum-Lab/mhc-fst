@@ -32,8 +32,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from manhattan import assign_cumulative_positions
-from outlier_scan import empirical_one_sided_p, benjamini_hochberg
+from window_scan.manhattan import assign_cumulative_positions
+from window_scan.outlier_scan import empirical_one_sided_p, benjamini_hochberg
 
 MAD_TO_DEVIATION = 1.4826
 SMALLEST_TAIL = np.finfo(float).tiny
@@ -87,7 +87,10 @@ def stratum_tails(values):
 def stratified_p_values(genes, strata):
 	'''
 	Rank every gene against the genes holding a similar number of variants, so
-	that gene size does not decide which genes reach the top.
+	that gene size does not decide which genes reach the top. A stratum whose
+	genes hold no spread at all cannot place its genes against anything, and
+	they are dropped, since one unplaceable gene would otherwise carry its
+	emptiness through the whole correction and leave every gene uncalled.
 	'''
 	genes = genes.copy()
 	genes['stratum'] = pd.qcut(genes['n_variants'], strata, labels=False, duplicates='drop')
@@ -99,6 +102,7 @@ def stratified_p_values(genes, strata):
 		genes.loc[rows, 'p_high'] = p_high
 		genes.loc[rows, 'p_low'] = p_low
 		genes.loc[rows, 'percentile'] = 1.0 - percentile
+	genes = genes[np.isfinite(genes['p_high']) & np.isfinite(genes['p_low'])].copy()
 	genes['q_high'] = benjamini_hochberg(genes['p_high'].to_numpy())
 	genes['q_low'] = benjamini_hochberg(genes['p_low'].to_numpy())
 	return genes

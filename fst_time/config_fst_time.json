@@ -1,6 +1,6 @@
 {
 	"bed_prefix": "/sci/labs/gilig/lab_share/adna_db/poseidon_aadr/Poseidon_AADR_v62",
-	"populations_path": "populations.json",
+	"populations_path": "fst_time/populations.json",
 	"annotation_path": "/sci/labs/gilig/lab_share/adna_db/ohad_mhc/gencode.v19.annotation.gtf.gz",
 	"genotype_source": "AADR",
 	"polygon_a": "Central Europe",

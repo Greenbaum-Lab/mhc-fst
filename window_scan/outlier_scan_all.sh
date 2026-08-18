@@ -10,12 +10,14 @@ eval "$(conda shell.bash hook)"
 conda activate adna
 
 WORK_DIR=/sci/labs/gilig/lab_share/adna_db/ohad_mhc
+REPO_DIR=${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
+cd $REPO_DIR
 
 BINS=(1000_2000 2000_3000 3000_4000 4000_5000 5000_6000 6000_7000 7000_8000 8000_9000 9000_10000)
 
 
 for bin_label in "${BINS[@]}"; do
-	python $WORK_DIR/outlier_scan.py \
+	python -m window_scan.outlier_scan \
 		--fst-dir $WORK_DIR/fst/100k_window \
 		--bin $bin_label \
 		--chromosomes $(seq 1 22) \

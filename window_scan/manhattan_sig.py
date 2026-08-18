@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from manhattan import (
+from window_scan.manhattan import (
 	load_pair_labels,
 	load_chromosome_windows,
 	load_genomewide,

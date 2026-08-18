@@ -12,9 +12,11 @@ conda activate adna
 
 DATA_DIR=/sci/labs/gilig/lab_share/adna_db/poseidon_aadr
 WORK_DIR=/sci/labs/gilig/lab_share/adna_db/ohad_mhc
+REPO_DIR=${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
+cd $REPO_DIR
 
-python $WORK_DIR/build_subsets.py \
+python -m window_scan.build_subsets \
 	--janno $DATA_DIR/Poseidon_AADR_v62.janno \
 	--source-bed-prefix $DATA_DIR/Poseidon_AADR_v62 \
-	--config $WORK_DIR/config_full.json \
+	--config window_scan/config_full.json \
 	--subset-prefix-template $WORK_DIR/subsets/subset_{low}_{high}
