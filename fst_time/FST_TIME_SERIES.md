@@ -37,13 +37,14 @@ carry rather than failing later:
 
 `plot_trend_grid.py` puts every locus on one page, in a column for the trend
 expected of it, with the archaeological periods shaded and the expected time
-of change marked. The top panel of each column averages that column's loci at
-each time bin, with error bars spanning the loci rather than the uncertainty
-of any one of them, so it shows whether the loci of a trend agree. It reads
-only the results table and `fst_time/time_periods.json`, so copy it and them
-into one directory and run it there:
+of change marked. Each panel holds that locus, the genome wide line and the
+mean over all annotated genes, the last two identical in every panel. `--include`
+keeps only the loci named, `--exclude` drops the ones named. It reads only the
+results table, `gene_background.csv` and `fst_time/time_periods.json`, so copy
+them into one directory and run it there:
 
 	python plot_trend_grid.py
+	python plot_trend_grid.py --include LCT MHC ERAP2
 	python plot_trend_grid.py --exclude G6PD EPAS1
 
 `manhattan_genes.py` scans every gene of a run, one figure per time bin,
@@ -155,13 +156,6 @@ Every replicate then lands above the estimate, by more than the replicates
 spread among themselves, so the percentile interval sits entirely above the
 estimate and reflecting it puts the interval entirely below. Both miss. A
 leave-one-out sample holds nobody twice and has neither problem.
-
-**Across loci.** The top panel of each column of the trend grid averages that
-column's loci at each time bin, and its error bars are the spread between
-those loci, not the uncertainty of any one of them. They answer whether the
-loci of a trend agree with each other, which is a different question from
-either jackknife, and they say nothing about how well each locus is measured.
-A column holding one locus has no spread and no bars.
 
 ## Scanning every gene
 
