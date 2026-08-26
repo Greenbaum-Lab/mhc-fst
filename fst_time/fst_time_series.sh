@@ -15,7 +15,8 @@ cd $REPO_DIR
 python -m fst_time.run_fst_time_series \
 	--config fst_time/config_fst_time.json
 
-python -m fst_time.plot_fst_time_series \
+python -m fst_time.plot_trend_grid \
 	--results results/fst_time_series.csv \
+	--periods fst_time/time_periods.json \
 	--gene-background results/gene_background.csv \
 	--output-dir results

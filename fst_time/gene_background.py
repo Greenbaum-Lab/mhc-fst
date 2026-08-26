@@ -68,15 +68,15 @@ def background_row(time_bin, values, confidence_level):
 	}
 
 
-def background_table(context, gene_accumulators, min_gene_variants, confidence_level):
+def background_table(context, gene_accumulators, confidence_level):
 	'''
-	The mean over genes at each time bin, counting only the genes holding
-	enough variants to be worth a number of their own.
+	The mean over every gene of the annotation at each time bin. No gene is
+	dropped for the number of variants behind it; a gene the estimator left
+	without a usable variant has no value and so does not enter the mean.
 	'''
 	values = gene_fst(gene_accumulators)
-	counted = np.where(gene_accumulators['variant_count'] >= min_gene_variants, values, np.nan)
 	rows = [
-		background_row(time_bin, counted[bin_position], confidence_level)
+		background_row(time_bin, values[bin_position], confidence_level)
 		for bin_position, time_bin in enumerate(context['time_bins'])
 	]
 	return pd.DataFrame(rows, columns=BACKGROUND_COLUMNS)
