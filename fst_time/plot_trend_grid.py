@@ -1,12 +1,11 @@
 '''
-Every locus on one page, in a column for the trend expected of it.
+Every locus of a run on one page, in a column for the trend expected of it.
 
-Reads only the results table, the gene background and the period list, so it
-can sit next to them and run away from the pipeline and the cluster.
+The loci drawn are the loci measured, which are chosen in `loci.py` alone.
+This reads only the results table, the gene background and the period list, so
+it can sit next to them and run away from the pipeline and the cluster.
 
 	python plot_trend_grid.py
-	python plot_trend_grid.py --include LCT MHC ERAP2
-	python plot_trend_grid.py --exclude G6PD EPAS1
 
 Every input defaults to the working directory, and the figure is written there
 too.
@@ -15,14 +14,13 @@ too.
 import json
 import argparse
 import pathlib
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
 GENOME_WIDE_TARGET = 'genome_wide'
-TREND_COLUMNS = ['high', 'low', 'neutral']
+TREND_ORDER = ['high', 'low', 'neutral']
 UNCERTAINTIES = ['snp_blocks', 'individuals']
 FOCAL_COLOR = '#c0392b'
 GENE_BACKGROUND_COLOR = '#2e7d32'
@@ -31,8 +29,12 @@ PERIOD_COLORS = ['#4c72b0', '#dd8452', '#55a868', '#c44e52', '#8172b3']
 PERIOD_ALPHA = 0.13
 BAND_ALPHA = 0.2
 HEADER_INCHES = 0.55
-FOOTER_INCHES = 0.80
+FOOTER_INCHES = 0.50
 PANEL_INCHES = 1.7
+PANEL_WIDTH_INCHES = 4.2
+LEGEND_ENTRY_INCHES = 1.75
+LEGEND_ROW_INCHES = 0.30
+LEGEND_LINE_ENTRIES = 3
 
 
 def load_periods(periods_path):
@@ -107,26 +109,17 @@ def style_panel(axis, target_rows):
 	axis.spines['right'].set_visible(False)
 
 
-def chosen_targets(table, included, excluded):
+def trend_targets(table):
 	'''
-	The loci to draw, kept to those named where any are named, and without the
-	ones left out.
+	The loci of each trend the run holds, in the order the table holds them,
+	so a trend no locus expects takes no column.
 	'''
 	focal = table[table['target'] != GENOME_WIDE_TARGET]
-	if included:
-		focal = focal[focal['target'].isin(included)]
-	return focal[~focal['target'].isin(excluded)]
-
-
-def trend_targets(table, included, excluded):
-	'''
-	The loci of each trend column, in the order the table holds them.
-	'''
-	focal = chosen_targets(table, included, excluded)
-	return {
+	targets_by_trend = {
 		trend: list(dict.fromkeys(focal[focal['trend'] == trend]['target']))
-		for trend in TREND_COLUMNS
+		for trend in TREND_ORDER
 	}
+	return {trend: targets for trend, targets in targets_by_trend.items() if targets}
 
 
 def fill_column(column_axes, targets, table, background_rows, gene_background, periods, uncertainty):
@@ -140,12 +133,11 @@ def fill_column(column_axes, targets, table, background_rows, gene_background, p
 		style_panel(axis, target_rows)
 	for axis in column_axes[len(targets):]:
 		axis.set_visible(False)
-	if targets:
-		column_axes[len(targets) - 1].tick_params(labelbottom=True)
+	column_axes[len(targets) - 1].tick_params(labelbottom=True)
 
 
 def add_column_headers(figure, axes, targets_by_trend, top):
-	for column_position, trend in enumerate(TREND_COLUMNS):
+	for column_position, trend in enumerate(targets_by_trend):
 		box = axes[0, column_position].get_position()
 		figure.text(
 			box.x0 + box.width / 2.0, top + (1.0 - top) * 0.35,
@@ -153,7 +145,19 @@ def add_column_headers(figure, axes, targets_by_trend, top):
 			ha='center', fontsize=13, fontweight='bold')
 
 
-def add_legend(figure, periods):
+def legend_layout(figure_width, periods):
+	'''
+	The columns the legend takes at this width and the height the footer needs
+	for the rows they make, so a narrow figure wraps the legend rather than
+	running it off the page.
+	'''
+	entry_count = len(periods) + LEGEND_LINE_ENTRIES
+	columns = max(1, min(entry_count, int(figure_width / LEGEND_ENTRY_INCHES)))
+	rows = -(-entry_count // columns)
+	return columns, FOOTER_INCHES + LEGEND_ROW_INCHES * rows
+
+
+def add_legend(figure, periods, columns):
 	handles = [
 		Patch(facecolor=PERIOD_COLORS[position % len(PERIOD_COLORS)], alpha=PERIOD_ALPHA,
 		      label=period['period'].replace('_', ' '))
@@ -164,7 +168,7 @@ def add_legend(figure, periods):
 	handles.append(Line2D([], [], color=GENE_BACKGROUND_COLOR, marker='s', markersize=3,
 	                      label='mean over all annotated genes'))
 	figure.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, 0.0),
-	              ncol=len(handles), frameon=False, fontsize=8)
+	              ncol=columns, frameon=False, fontsize=8)
 
 
 def finish_layout(figure, axes, targets_by_trend, periods):
@@ -174,27 +178,32 @@ def finish_layout(figure, axes, targets_by_trend, periods):
 	panels keep the same height.
 	'''
 	height = figure.get_figheight()
-	bottom, top = FOOTER_INCHES / height, 1.0 - HEADER_INCHES / height
+	columns, footer = legend_layout(figure.get_figwidth(), periods)
+	bottom, top = footer / height, 1.0 - HEADER_INCHES / height
 	figure.tight_layout(rect=[0.03, bottom, 1, top])
 	add_column_headers(figure, axes, targets_by_trend, top)
-	add_legend(figure, periods)
-	figure.supxlabel('Thousand years before present', fontsize=11, y=bottom * 0.42)
+	add_legend(figure, periods, columns)
+	figure.supxlabel('Thousand years before present', fontsize=11,
+	                 y=(footer - FOOTER_INCHES) / height)
 	figure.supylabel('$F_{ST}$', fontsize=12)
 
 
-def build_figure(table, gene_background, periods, uncertainty, included, excluded):
+def build_figure(table, gene_background, periods, uncertainty):
 	'''
 	One column per expected trend, one panel per locus, all on a shared time
 	axis running from oldest to most recent.
 	'''
-	targets_by_trend = trend_targets(table, included, excluded)
+	targets_by_trend = trend_targets(table)
+	column_count = len(targets_by_trend)
 	row_count = max(len(targets) for targets in targets_by_trend.values())
+	width = PANEL_WIDTH_INCHES * column_count
+	footer = legend_layout(width, periods)[1]
 	figure, axes = plt.subplots(
-		row_count, len(TREND_COLUMNS), squeeze=False, sharex=True,
-		figsize=(4.2 * len(TREND_COLUMNS), PANEL_INCHES * row_count + HEADER_INCHES + FOOTER_INCHES))
+		row_count, column_count, squeeze=False, sharex=True,
+		figsize=(width, PANEL_INCHES * row_count + HEADER_INCHES + footer))
 	background_rows = table[table['target'] == GENOME_WIDE_TARGET].sort_values('time_start')
-	for column_position, trend in enumerate(TREND_COLUMNS):
-		fill_column(axes[:, column_position], targets_by_trend[trend], table,
+	for column_position, targets in enumerate(targets_by_trend.values()):
+		fill_column(axes[:, column_position], targets, table,
 		            background_rows, gene_background, periods, uncertainty)
 	axes[0, 0].set_xlim(table['time_end'].max() / 1000.0, 0)
 	finish_layout(figure, axes, targets_by_trend, periods)
@@ -208,14 +217,11 @@ def main():
 	parser.add_argument('--gene-background', default='gene_background.csv')
 	parser.add_argument('--output-dir', default='.')
 	parser.add_argument('--uncertainty', choices=UNCERTAINTIES, default=UNCERTAINTIES[0])
-	parser.add_argument('--include', nargs='*', default=[], metavar='LOCUS')
-	parser.add_argument('--exclude', nargs='*', default=[], metavar='LOCUS')
 	args = parser.parse_args()
 	table = pd.read_csv(args.results)
 	gene_background = pd.read_csv(args.gene_background).sort_values('time_start')
 	figure = build_figure(
-		table, gene_background, load_periods(args.periods), args.uncertainty,
-		args.include, args.exclude)
+		table, gene_background, load_periods(args.periods), args.uncertainty)
 	figure.savefig(pathlib.Path(args.output_dir) / f'fst_trend_grid_{args.uncertainty}.png', dpi=200)
 
 

@@ -2,14 +2,19 @@ import json
 import pathlib
 import argparse
 
+from fst_time.loci import FOCAL_LOCI
 from fst_time.time_series import run_time_series
 from fst_time.results import build_table, save_jackknife_values, save_regions
 from fst_time.gene_background import gene_table, background_table, save_gene_sums
 
 
 def load_config(config_path):
+	'''
+	The configuration of a run, which is the file passed in together with the
+	locus list, the one thing chosen in code rather than in the file.
+	'''
 	with open(config_path) as config_file:
-		return json.load(config_file)
+		return {**json.load(config_file), 'loci': FOCAL_LOCI}
 
 
 def write_outputs(config, context, all_sums):
@@ -27,7 +32,7 @@ def write_outputs(config, context, all_sums):
 	gene_table(context, all_sums['genes']).to_csv(output_dir / 'fst_per_gene.csv', index=False)
 	save_gene_sums(output_dir / 'fst_per_gene.npz', context, all_sums['genes'])
 	background_table(
-		context, all_sums['genes'], config['min_gene_variants'], config['confidence_level']
+		context, all_sums['genes'], config['confidence_level']
 	).to_csv(output_dir / 'gene_background.csv', index=False)
 	return table
 

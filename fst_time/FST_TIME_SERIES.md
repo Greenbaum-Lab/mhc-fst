@@ -24,28 +24,30 @@ Submit from the repository root. The job takes the directory it was submitted
 from. Step by step, from the same place:
 
 	python -m fst_time.run_fst_time_series --config fst_time/config_fst_time.json
-	python -m fst_time.plot_fst_time_series --results results/fst_time_series.csv \
+	python -m fst_time.plot_trend_grid --results results/fst_time_series.csv \
+		--periods fst_time/time_periods.json \
 		--gene-background results/gene_background.csv --output-dir results
 
 After editing the locus list, resolve it before submitting a job. This reads
 only the annotation, takes seconds, and names a symbol the annotation does not
 carry rather than failing later:
 
-	python -c "import json; from fst_time.gene_regions import load_gene_spans, locus_gene_names; \
+	python -c "import json; from fst_time.loci import FOCAL_LOCI; \
+		from fst_time.gene_regions import load_gene_spans, locus_gene_names; \
 		config = json.load(open('fst_time/config_fst_time.json')); \
-		print(load_gene_spans(config['annotation_path'], locus_gene_names(config['loci'])))"
+		print(load_gene_spans(config['annotation_path'], locus_gene_names(FOCAL_LOCI)))"
 
-`plot_trend_grid.py` puts every locus on one page, in a column for the trend
-expected of it, with the archaeological periods shaded and the expected time
-of change marked. Each panel holds that locus, the genome wide line and the
-mean over all annotated genes, the last two identical in every panel. `--include`
-keeps only the loci named, `--exclude` drops the ones named. It reads only the
-results table, `gene_background.csv` and `fst_time/time_periods.json`, so copy
-them into one directory and run it there:
+`plot_trend_grid.py` is the one figure a run draws: every locus on one page, in
+a column for the trend expected of it, with the archaeological periods shaded
+and the expected time of change marked. Each panel holds that locus, the genome
+wide line and the mean over all annotated genes, the last two identical in every
+panel. The loci drawn are the loci measured, so the figure is changed by editing
+`loci.py` and running again. A trend no locus expects takes no column.
+
+It reads only the results table, `gene_background.csv` and
+`fst_time/time_periods.json`, so copy them into one directory and run it there:
 
 	python plot_trend_grid.py
-	python plot_trend_grid.py --include LCT MHC ERAP2
-	python plot_trend_grid.py --exclude G6PD EPAS1
 
 `manhattan_genes.py` scans every gene of a run, one figure per time bin,
 written into a folder of its own:
@@ -60,22 +62,27 @@ cluster data:
 
 ## Configuring loci
 
+The loci are chosen in `loci.py` and nowhere else. The configuration file holds
+only paths and parameters, so changing which loci are studied is an edit to one
+python list, and both the computation and the figure follow it.
+
 A locus is either a set of gene symbols, spanning from the first start to the
 last end of those genes, or a chromosome with coordinates given directly. Each
 one carries what it is studied for and what is expected of it, which is what
-the figures are titled and grouped by:
+the figure is titled and grouped by:
 
-	{"label": "LCT", "genes": ["LCT"],
-	 "phenotype": "lactase persistence", "trend": "low", "time_bp": 4500}
-	{"label": "MHC", "chromosome": "6", "start": 29000000, "end": 35000000,
-	 "phenotype": "infectious disease immunity", "trend": "low", "time_bp": 8500}
+	{'label': 'LCT', 'genes': ['LCT'],
+	 'phenotype': 'lactase persistence', 'trend': 'low', 'time_bp': 4500}
+	{'label': 'FADS1_FADS2', 'genes': ['FADS1', 'FADS2'],
+	 'phenotype': 'lipid metabolism', 'trend': 'low', 'time_bp': 8500}
 
 `trend` is what the locus is expected to do against the genome wide
 background, one of high, low or neutral. `time_bp` is the year the expectation
-changes, or null where there is none. Neither enters the computation, only the
-figures. A locus is measured over its span alone. Genes named by several loci
-are resolved once. Nothing in the run is random, so the same inputs always
-give the same numbers.
+changes, or None where there is none. Neither enters the computation, only the
+figure. A locus is measured over its span alone, on its own variants and with
+its own jackknives, not assembled from the per gene table. Genes named by
+several loci are resolved once. Nothing in the run is random, so the same
+inputs always give the same numbers.
 
 ## Output
 
@@ -101,11 +108,10 @@ showing that genes are not the genome. Averaging over genes compares like with
 like.
 
 The error bars on that mean are the spread between genes, not the uncertainty
-of any one of them. Only genes holding at least `min_gene_variants` variants
-count towards it, since a gene measured from two variants would otherwise
-widen the spread without adding anything. Every gene is written out whatever
-its count, so the threshold can be changed after the fact from the saved
-table.
+of any one of them. Every gene the annotation carries counts towards it: there
+is no threshold on the number of variants a gene holds, since that would be a
+filter on the data. A gene the estimator left without a usable variant has no
+value and so does not enter the mean.
 
 A gene here is a `gene` feature of the annotation whose `gene_type` is one of
 `gene_biotypes`, which is `protein_coding` alone, so pseudogenes and long
@@ -213,12 +219,12 @@ must match the build of the genotypes. GENCODE 19 and the AADR are both hg19.
 Coordinates written directly into a locus are trusted as hg19 and not checked.
 
 **Gene symbols are the annotation's, not today's.** GENCODE 19 dates from 2013
-and carries the symbols of that time. DARC was renamed ACKR1 in 2015, so the
-config asks for DARC. A symbol the annotation does not know stops the run
+and carries the symbols of that time, so a gene renamed since then is asked for
+by its name of that time. A symbol the annotation does not know stops the run
 before any genotype is read.
 
 **Autosomes only,** and the genome wide background includes the focal regions,
 which are a negligible fraction of it. A locus on X or Y holds no variants and
-its panel is drawn empty and labelled as such, which is what G6PD does.
-Hemizygous males make the diploid estimator wrong on X, which is why the
-chromosome is left out rather than quietly included.
+its panel is drawn empty and labelled as such. Hemizygous males make the
+diploid estimator wrong on X, which is why the chromosome is left out rather
+than quietly included.
