@@ -5,6 +5,7 @@ Significance here is a plain quantile of the genes themselves: the lowest and
 the highest three percent of the bin stand out, whatever their spread. This
 asks only where a gene sits among the rest, and unlike the stratified tail of
 manhattan_genes.py it does not account for how many variants a gene holds.
+Every gene with a finite FST enters, whatever the number of variants behind it.
 
 Two figures are drawn from the same genes. The first is FST as measured. The
 second is FST over the genome wide FST of the same bin, which places a gene
@@ -25,6 +26,7 @@ CHROMOSOME_COLORS = ['#9a9a9a', '#c8c8c8']
 EXTREME_COLORS = {'low': '#2980b9', 'high': '#c0392b'}
 THRESHOLD_COLOR = '#c0392b'
 MEASURES = {'fst': 'FST', 'ratio': 'FST / genome wide FST'}
+NO_VARIANT_FLOOR = 0
 
 
 def genome_wide_fst(results):
@@ -127,7 +129,7 @@ def scan_bin(per_gene, genome_wide, time_bin, arguments, output_dir):
 	'''
 	time_start, time_end = time_bin
 	rows = per_gene[(per_gene['time_start'] == time_start) & (per_gene['time_end'] == time_end)]
-	genes = add_ratio(genomic_axis(usable_genes(rows, arguments.min_variants)), genome_wide[time_bin])
+	genes = add_ratio(genomic_axis(usable_genes(rows, NO_VARIANT_FLOOR)), genome_wide[time_bin])
 	title = (f'{time_start}-{time_end} years before present, {len(genes)} genes, '
 	         f'extreme {arguments.fraction:.0%} on each side')
 	for measure in MEASURES:
@@ -142,7 +144,6 @@ def main():
 	parser.add_argument('--per-gene', default='results/fst_per_gene.csv')
 	parser.add_argument('--results', default='results/fst_time_series.csv')
 	parser.add_argument('--output-dir', default='results/manhattan')
-	parser.add_argument('--min-variants', type=int, default=10)
 	parser.add_argument('--annotate', type=int, default=25)
 	parser.add_argument('--fraction', type=float, default=0.03)
 	arguments = parser.parse_args()
