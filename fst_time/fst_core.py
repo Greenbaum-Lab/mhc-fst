@@ -53,11 +53,13 @@ def per_variant_fst(a, b, c):
 def ratio_of_averages(sum_a, sum_b, sum_c):
 	'''
 	Multi-locus FST as sum(a) / sum(a + b + c) over the variants of a region,
-	the standard Weir & Cockerham combination, clipped at zero once at the end.
-	Combining the components rather than averaging per variant ratios is what
-	keeps a region of few variants from being dominated by single variants.
+	the standard Weir & Cockerham combination. Combining the components rather
+	than averaging per variant ratios is what keeps a region of few variants
+	from being dominated by single variants. The value is left unclipped: a
+	region differentiated less than the sampling noise keeps the negative value
+	that says so, instead of being tied at zero with every other such region.
 	'''
 	denominator = sum_a + sum_b + sum_c
 	with np.errstate(invalid='ignore', divide='ignore'):
-		return np.where(denominator != 0.0, np.maximum(0.0, sum_a / denominator), np.nan)
+		return np.where(denominator != 0.0, sum_a / denominator, np.nan)
 
