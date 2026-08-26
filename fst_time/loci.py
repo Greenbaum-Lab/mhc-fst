@@ -17,7 +17,7 @@ its name of that time.
 
 FOCAL_LOCI = [
 	{'label': 'SLC24A5', 'genes': ['SLC24A5'], 'phenotype': 'pigmentation', 'trend': 'high', 'time_bp': 8500},
-	{'label': 'SLC25A2', 'genes': ['SLC25A2'], 'phenotype': 'pigmentation', 'trend': 'high', 'time_bp': 4500},
+	{'label': 'SLC45A2', 'genes': ['SLC45A2'], 'phenotype': 'pigmentation', 'trend': 'high', 'time_bp': 4500},
 	{'label': 'OCA2', 'genes': ['OCA2'], 'phenotype': 'pigmentation', 'trend': 'high', 'time_bp': 8500},
 	{'label': 'EDAR', 'genes': ['EDAR'], 'phenotype': 'ectodermal morphology', 'trend': 'high', 'time_bp': None},
 	{'label': 'EPAS1', 'genes': ['EPAS1'], 'phenotype': 'high altitude hypoxia', 'trend': 'high', 'time_bp': None},
@@ -28,7 +28,7 @@ FOCAL_LOCI = [
 	{'label': 'MARK3', 'genes': ['MARK3'], 'phenotype': 'infectious disease immunity', 'trend': 'low', 'time_bp': 4500},
 	{'label': 'IL23R', 'genes': ['IL23R'], 'phenotype': 'immune signalling', 'trend': 'low', 'time_bp': 4500},
 	{'label': 'TYK2', 'genes': ['TYK2'], 'phenotype': 'immune signalling', 'trend': 'low', 'time_bp': 4500},
-	{'label': 'ILRL1', 'genes': ['IL1RL1'], 'phenotype': 'immune signalling', 'trend': 'low', 'time_bp': 3150},
-	{'label': 'ERAP', 'genes': ['ERAP2'], 'phenotype': 'antigen processing, plague', 'trend': 'low', 'time_bp': 700},
+	{'label': 'IL1RL1', 'genes': ['IL1RL1'], 'phenotype': 'immune signalling', 'trend': 'low', 'time_bp': 3150},
+	{'label': 'ERAP2', 'genes': ['ERAP2'], 'phenotype': 'antigen processing, plague', 'trend': 'low', 'time_bp': 700},
 	{'label': 'ABO', 'genes': ['ABO'], 'phenotype': 'blood group, pathogen binding', 'trend': 'low', 'time_bp': None},
 ]
