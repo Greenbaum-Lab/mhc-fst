@@ -1,11 +1,10 @@
 '''
-Manhattan plots of how far every gene falls outside its own size matched null.
+Manhattan plots of gene FST along the genome.
 
-The height of a gene is the two sided tail of its percentile in that null, so
-ordinary genes sit near zero and only the genes departing from the null rise.
-The score is signed: a gene that changed more between the oldest and the newest
-time bin than random variant sets of the same size rises above the line, and a
-gene that changed less falls below it.
+The height of a gene is its FST between the oldest and the newest time bin, as
+measured. Colour carries the genes the scan called outside their own size
+matched null, red where the gene changed more than random variant sets of the
+same size and blue where it changed less.
 '''
 
 import matplotlib.pyplot as plt
@@ -19,29 +18,25 @@ GROUP_MARKERS = ['o', '^', 's', 'D']
 BACKGROUND_SIZE = 4
 CALLED_SIZE = 16
 FIGURE_SIZE = (14, 5.0)
-LIMIT_MARGIN = 1.05
 
 
 def draw_background(axes, genes):
 	for index, chromosome in enumerate(AUTOSOMES):
 		block = genes[genes['chrom'] == chromosome]
-		axes.scatter(block['position'], block['score'], s=BACKGROUND_SIZE, color=CHROMOSOME_COLORS[index % len(CHROMOSOME_COLORS)], linewidths=0)
+		axes.scatter(block['position'], block['fst'], s=BACKGROUND_SIZE, color=CHROMOSOME_COLORS[index % len(CHROMOSOME_COLORS)], linewidths=0)
 
 
 def draw_called(axes, genes, marker):
 	for direction, color in DIRECTION_COLORS.items():
 		block = genes[(genes['outside_null'] == 1) & (genes['direction'] == direction)]
-		axes.scatter(block['position'], block['score'], s=CALLED_SIZE, color=color, marker=marker, linewidths=0, label=f'{direction} ({len(block)})')
+		axes.scatter(block['position'], block['fst'], s=CALLED_SIZE, color=color, marker=marker, linewidths=0, label=f'{direction} ({len(block)})')
 
 
 def label_axes(axes, centres, title, handles=None):
 	axes.set_xticks(list(centres.values()))
 	axes.set_xticklabels(list(centres.keys()), fontsize=7)
 	axes.set_xlabel('chromosome')
-	axes.set_ylabel('signed -log10 two sided tail against the null')
-	axes.axhline(0.0, color='#666666', linewidth=0.8)
-	limit = max(abs(value) for value in axes.get_ylim()) * LIMIT_MARGIN
-	axes.set_ylim(-limit, limit)
+	axes.set_ylabel('FST')
 	axes.set_title(title)
 	axes.legend(handles=handles, fontsize=8, frameon=False, loc='center left', bbox_to_anchor=(1.0, 0.5))
 
@@ -80,7 +75,7 @@ def plot_shared(shared, centres, path):
 		block = shared[shared['group'] == group]
 		marker = GROUP_MARKERS[index % len(GROUP_MARKERS)]
 		colors = [DIRECTION_COLORS[direction] for direction in block['direction']]
-		axes.scatter(block['position'], block['score'], s=CALLED_SIZE * 2, marker=marker, color=colors, linewidths=0)
+		axes.scatter(block['position'], block['fst'], s=CALLED_SIZE * 2, marker=marker, color=colors, linewidths=0)
 		handles.append(marker_handle(f'{group} ({len(block)})', marker, '#444444'))
 	label_axes(axes, centres, f'genes called outside the null in every group, {shared["gene"].nunique()} genes', handles)
 	save(figure, path)
