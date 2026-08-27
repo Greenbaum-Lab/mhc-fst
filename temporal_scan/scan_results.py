@@ -44,17 +44,17 @@ def add_direction(genes):
 
 def add_score(genes):
 	'''
-	How far each gene departs from its own null, whichever side it departs on,
-	so that an ordinary gene scores zero and every departing gene rises. The
-	tail cannot be read finer than the null was drawn, so it is held at the
-	smallest tail the table resolves and the genes reaching that floor share
-	one height.
+	Each gene as a two sided score against its own null, positive where the
+	gene sits above the null and negative where it sits below. The tail cannot
+	be read finer than the null was drawn, so it is held at the smallest tail
+	the table resolves and the genes reaching that floor share one height.
 	'''
 	genes = genes.copy()
 	tails = np.minimum(genes['null_percentile'], 1.0 - genes['null_percentile'])
 	smallest_tail = tails[tails > 0].min()
 	probabilities = np.minimum(2.0 * np.maximum(tails, smallest_tail), 1.0)
-	genes['score'] = -np.log10(probabilities)
+	sides = np.where(genes['direction'] == HIGH, 1.0, -1.0)
+	genes['score'] = -np.log10(probabilities) * sides
 	return genes
 
 
