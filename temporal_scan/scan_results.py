@@ -19,9 +19,7 @@ MIDDLE_OF_NULL = 0.5
 
 
 def load_results(path):
-	results = pd.read_csv(path, sep='\t')
-	results['chrom'] = results['chrom'].astype(str)
-	return results
+	return pd.read_csv(path, sep='\t', dtype={'chrom': str})
 
 
 def usable_genes(results, min_variants):
@@ -41,6 +39,22 @@ def add_direction(genes):
 	'''
 	genes = genes.copy()
 	genes['direction'] = np.where(genes['null_percentile'] >= MIDDLE_OF_NULL, HIGH, LOW)
+	return genes
+
+
+def add_score(genes):
+	'''
+	Each gene as a two sided score against its own null, positive where the
+	gene sits above the null and negative where it sits below. The tail cannot
+	be read finer than the null was drawn, so it is held at the smallest tail
+	the table resolves and the genes reaching that floor share one height.
+	'''
+	genes = genes.copy()
+	tails = np.minimum(genes['null_percentile'], 1.0 - genes['null_percentile'])
+	smallest_tail = tails[tails > 0].min()
+	probabilities = np.minimum(2.0 * np.maximum(tails, smallest_tail), 1.0)
+	sides = np.where(genes['direction'] == HIGH, 1.0, -1.0)
+	genes['score'] = -np.log10(probabilities) * sides
 	return genes
 
 
@@ -79,5 +93,5 @@ def prepare(path, min_variants):
 	The usable genes of a scan table, with their direction and their place
 	along the genome, and the chromosome centres of that axis.
 	'''
-	genes = add_direction(usable_genes(load_results(path), min_variants))
+	genes = add_score(add_direction(usable_genes(load_results(path), min_variants)))
 	return genomic_axis(genes)

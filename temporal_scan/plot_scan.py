@@ -1,5 +1,5 @@
 '''
-Draws the Manhattan and the diagnostic figures of a temporal FST scan table.
+Draws the Manhattan figures of a temporal FST scan table.
 '''
 
 import argparse
@@ -7,7 +7,6 @@ import pathlib
 
 from temporal_scan.scan_results import prepare, significant_in_every_group
 from temporal_scan.manhattan import plot_group, plot_shared
-from temporal_scan.diagnostics import plot_diagnostic
 
 MIN_VARIANTS = 5
 
@@ -32,7 +31,6 @@ def main():
 	for group in sorted(genes['group'].unique()):
 		block = genes[genes['group'] == group]
 		plot_group(genes, centres, group, directory / f'manhattan_{file_name(group)}.png')
-		plot_diagnostic(block, group, directory / f'fst_by_variants_{file_name(group)}.png')
 		print(f'{group}: {len(block)} genes, {int(block["outside_null"].sum())} outside the null')
 	shared = significant_in_every_group(genes)
 	plot_shared(shared, centres, directory / 'manhattan_shared.png')
