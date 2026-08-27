@@ -1,11 +1,11 @@
 '''
 Manhattan plots of how far every gene falls outside its own size matched null.
 
-The height of a gene is the two sided tail of its percentile in that null, so
-ordinary genes sit near zero and only the genes departing from the null rise.
-The score is signed: a gene that changed more between the oldest and the newest
-time bin than random variant sets of the same size rises above the line, and a
-gene that changed less falls below it.
+The height of a gene is the tail of its percentile in that null, so ordinary
+genes sit near zero and every gene departing from the null rises whichever side
+it departs on. Colour carries the side: red where the gene changed more between
+the oldest and the newest time bin than random variant sets of the same size,
+blue where it changed less.
 '''
 
 import matplotlib.pyplot as plt
@@ -38,10 +38,8 @@ def label_axes(axes, centres, title, handles=None):
 	axes.set_xticks(list(centres.values()))
 	axes.set_xticklabels(list(centres.keys()), fontsize=7)
 	axes.set_xlabel('chromosome')
-	axes.set_ylabel('signed -log10 two sided tail against the null')
-	axes.axhline(0.0, color='#666666', linewidth=0.8)
-	limit = max(abs(value) for value in axes.get_ylim()) * LIMIT_MARGIN
-	axes.set_ylim(-limit, limit)
+	axes.set_ylabel('-log10 tail against the size matched null')
+	axes.set_ylim(0.0, axes.get_ylim()[1] * LIMIT_MARGIN)
 	axes.set_title(title)
 	axes.legend(handles=handles, fontsize=8, frameon=False, loc='center left', bbox_to_anchor=(1.0, 0.5))
 
