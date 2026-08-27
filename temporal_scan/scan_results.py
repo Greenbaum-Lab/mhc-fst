@@ -19,9 +19,7 @@ MIDDLE_OF_NULL = 0.5
 
 
 def load_results(path):
-	results = pd.read_csv(path, sep='\t')
-	results['chrom'] = results['chrom'].astype(str)
-	return results
+	return pd.read_csv(path, sep='\t', dtype={'chrom': str})
 
 
 def usable_genes(results, min_variants):
