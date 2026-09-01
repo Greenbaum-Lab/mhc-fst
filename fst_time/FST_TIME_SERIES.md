@@ -49,6 +49,19 @@ It reads only the results table, `gene_background.csv` and
 
 	python plot_trend_grid.py
 
+`plot_final_figure.py` is the finished version of that page for the paper. It
+holds its own locus list and its own periods, so it needs only the results
+table and `gene_background.csv`, and it draws both jackknives in one run:
+
+	python plot_final_figure.py --results-dir . --output-dir .
+
+The loci it draws, their order and their columns are the list at the top of
+the script, which is a choice of the figure rather than of the run, so a
+measured locus can be left off the page without measuring anything again.
+Every panel of a column shares one FST axis, the time axis ends where the data
+ends, and the mean over genes is drawn as a line with a band like the others
+rather than as error bars.
+
 `manhattan_genes.py` scans every gene of a run, one figure per time bin,
 written into a folder of its own:
 
