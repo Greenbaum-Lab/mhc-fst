@@ -92,7 +92,6 @@ def draw_panel(axis, locus, target_rows, background_rows, gene_background, uncer
 	draw_series(axis, gene_background, 'ci_low', 'ci_high', GENE_BACKGROUND_COLOR, '--')
 	draw_series(axis, target_rows, f'ci_low_{uncertainty}', f'ci_high_{uncertainty}', FOCAL_COLOR, '-')
 	axis.set_title(f'{locus["label"]}\n{locus["phenotype"]}', fontsize=9, linespacing=1.3)
-	axis.set_xlabel(TIME_LABEL, fontsize=8)
 	axis.set_ylabel(FST_LABEL, fontsize=9)
 	axis.set_ylim(limits)
 	axis.tick_params(labelsize=8)
@@ -121,13 +120,17 @@ def column_limits(table, loci, background_rows, gene_background, uncertainty):
 
 
 def fill_column(axes, loci, table, background_rows, gene_background, uncertainty):
+	'''
+	A column of panels of one size, so a column holding fewer loci than the
+	longest one leaves its last panel empty rather than stretching the rest.
+	'''
 	limits = column_limits(table, loci, background_rows, gene_background, uncertainty)
 	for axis, locus in zip(axes, loci):
 		target_rows = table[table['target'] == locus['label']].sort_values('time_start')
 		draw_panel(axis, locus, target_rows, background_rows, gene_background, uncertainty, limits)
 		axis.set_xlim(time_limits(table))
 	for axis in axes[len(loci):]:
-		axis.set_visible(False)
+		axis.set_axis_off()
 
 
 def add_legend(figure):
@@ -161,6 +164,7 @@ def build_figure(table, gene_background, uncertainty):
 		layout='constrained')
 	for subfigure, (trend, loci) in zip(figure.subfigures(1, len(columns)), columns.items()):
 		subfigure.suptitle(f'expected {trend} ({len(loci)})', fontsize=13, fontweight='bold')
+		subfigure.supxlabel(TIME_LABEL, fontsize=9)
 		fill_column(subfigure.subplots(row_count, 1), loci, table, background_rows, gene_background, uncertainty)
 	add_legend(figure)
 	return figure
@@ -178,7 +182,7 @@ def main():
 	for uncertainty in UNCERTAINTIES:
 		figure = build_figure(table, gene_background, uncertainty)
 		figure.savefig(pathlib.Path(args.output_dir) / f'fst_final_{uncertainty}.png', dpi=args.dpi)
-		plt.close(figure)
+	plt.show()
 
 
 if __name__ == '__main__':
