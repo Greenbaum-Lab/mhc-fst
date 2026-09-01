@@ -2,17 +2,10 @@
 The finished figure: one panel per focal locus, in a column for the trend
 expected of it, drawn from the results tables alone.
 
-The loci drawn and their order are the list below, which is a choice of the
-figure and not of the run, so a measured locus can be left out of the page
-without measuring anything again. Both jackknives are drawn, one figure each.
-
 	python plot_final_figure.py --results-dir .
 
 It reads `fst_time_series.csv` and `gene_background.csv` and writes
 `fst_final_individuals.png` and `fst_final_snp_blocks.png` beside them.
-
-Every panel is placed by hand, in inches, so all of them are the same size
-whatever they are labelled and however many loci a column holds.
 '''
 
 import argparse
@@ -48,47 +41,14 @@ PERIOD_COLORS = ['#4c72b0', '#dd8452', '#55a868', '#c44e52', '#8172b3']
 PERIOD_ALPHA = 0.13
 BAND_ALPHA = 0.2
 AXIS_MARGIN = 0.05
-PANEL_WIDTH_INCHES = 4.0
-PANEL_HEIGHT_INCHES = 1.45
-LEFT_MARGIN_INCHES = 0.75
-RIGHT_MARGIN_INCHES = 0.3
-TITLE_INCHES = 0.6
-TICKS_INCHES = 0.35
-HEADER_INCHES = 0.5
-TIME_LABEL_INCHES = 0.4
-LEGEND_INCHES = 0.4
+PANEL_WIDTH = 5.0
+PANEL_HEIGHT = 2.2
 TIME_LABEL = 'Thousand years before present'
 FST_LABEL = '$F_{ST}$'
 
 
 def bin_midpoints(rows):
 	return (rows['time_start'] + rows['time_end']) / 2000.0
-
-
-def column_pitch():
-	return LEFT_MARGIN_INCHES + PANEL_WIDTH_INCHES + RIGHT_MARGIN_INCHES
-
-
-def row_pitch():
-	return TITLE_INCHES + PANEL_HEIGHT_INCHES + TICKS_INCHES
-
-
-def figure_size(column_count, row_count):
-	return (
-		column_count * column_pitch(),
-		HEADER_INCHES + row_count * row_pitch() + TIME_LABEL_INCHES + LEGEND_INCHES)
-
-
-def panel_axes(figure, row, column, row_count):
-	'''
-	The box of one panel, given in inches and turned into figure fractions, so
-	every panel of the page holds exactly the same area.
-	'''
-	width, height = figure.get_figwidth(), figure.get_figheight()
-	left = column * column_pitch() + LEFT_MARGIN_INCHES
-	bottom = LEGEND_INCHES + TIME_LABEL_INCHES + (row_count - 1 - row) * row_pitch() + TICKS_INCHES
-	return figure.add_axes([
-		left / width, bottom / height, PANEL_WIDTH_INCHES / width, PANEL_HEIGHT_INCHES / height])
 
 
 def shade_periods(axis):
@@ -121,28 +81,6 @@ def series_limits(frames, low_column, high_column):
 	return low - margin, high + margin
 
 
-def draw_panel(axis, locus, target_rows, background_rows, gene_background, uncertainty, limits):
-	shade_periods(axis)
-	draw_series(axis, background_rows, f'ci_low_{uncertainty}', f'ci_high_{uncertainty}', BACKGROUND_COLOR, '--')
-	draw_series(axis, gene_background, 'ci_low', 'ci_high', GENE_BACKGROUND_COLOR, '--')
-	draw_series(axis, target_rows, f'ci_low_{uncertainty}', f'ci_high_{uncertainty}', FOCAL_COLOR, '-')
-	axis.set_title(f'{locus["label"]}\n{locus["phenotype"]}', fontsize=9, linespacing=1.3)
-	axis.set_ylabel(FST_LABEL, fontsize=9)
-	axis.set_ylim(limits)
-	axis.tick_params(labelsize=8)
-	axis.spines['top'].set_visible(False)
-	axis.spines['right'].set_visible(False)
-
-
-def time_limits(table):
-	'''
-	The axis runs from the oldest bin to the most recent one, ending where the
-	data ends.
-	'''
-	years = bin_midpoints(table)
-	return years.max(), years.min()
-
-
 def column_limits(table, loci, background_rows, gene_background, uncertainty):
 	'''
 	One pair of limits for a whole column, so the loci expected to do the same
@@ -154,26 +92,40 @@ def column_limits(table, loci, background_rows, gene_background, uncertainty):
 	return min(low, gene_low), max(high, gene_high)
 
 
-def fill_column(figure, column, row_count, loci, table, background_rows, gene_background, uncertainty):
+def time_limits(table):
+	years = bin_midpoints(table)
+	return years.max(), years.min()
+
+
+def draw_panel(axis, locus, target_rows, background_rows, gene_background, uncertainty):
+	shade_periods(axis)
+	draw_series(axis, background_rows, f'ci_low_{uncertainty}', f'ci_high_{uncertainty}', BACKGROUND_COLOR, '--')
+	draw_series(axis, gene_background, 'ci_low', 'ci_high', GENE_BACKGROUND_COLOR, '--')
+	draw_series(axis, target_rows, f'ci_low_{uncertainty}', f'ci_high_{uncertainty}', FOCAL_COLOR, '-')
+	axis.set_title(f'{locus["label"]}\n{locus["phenotype"]}', fontsize=10, linespacing=1.3)
+	axis.set_ylabel(FST_LABEL, fontsize=10)
+	axis.tick_params(labelsize=9)
+	axis.spines['top'].set_visible(False)
+	axis.spines['right'].set_visible(False)
+
+
+def fill_column(column_axes, loci, table, background_rows, gene_background, uncertainty):
 	limits = column_limits(table, loci, background_rows, gene_background, uncertainty)
-	for row, locus in enumerate(loci):
-		axis = panel_axes(figure, row, column, row_count)
+	for axis, locus in zip(column_axes, loci):
 		target_rows = table[table['target'] == locus['label']].sort_values('time_start')
-		draw_panel(axis, locus, target_rows, background_rows, gene_background, uncertainty, limits)
+		draw_panel(axis, locus, target_rows, background_rows, gene_background, uncertainty)
 		axis.set_xlim(time_limits(table))
+		axis.set_ylim(limits)
+	for axis in column_axes[len(loci):]:
+		axis.axis('off')
+	column_axes[len(loci) - 1].set_xlabel(TIME_LABEL, fontsize=10)
 
 
-def add_column_labels(figure, column, trend, locus_count):
-	'''
-	The trend a column stands for above it and the time axis below it, once
-	each, while the years themselves stay on every panel.
-	'''
-	height = figure.get_figheight()
-	center = (column * column_pitch() + LEFT_MARGIN_INCHES + PANEL_WIDTH_INCHES / 2.0) / figure.get_figwidth()
-	figure.text(center, 1.0 - HEADER_INCHES / height * 0.7, f'expected {trend} ({locus_count})',
-	            ha='center', va='center', fontsize=13, fontweight='bold')
-	figure.text(center, (LEGEND_INCHES + TIME_LABEL_INCHES * 0.45) / height, TIME_LABEL,
-	            ha='center', va='center', fontsize=10)
+def add_headers(figure, axes, columns):
+	for column, (trend, loci) in enumerate(columns.items()):
+		box = axes[0, column].get_position()
+		figure.text(box.x0 + box.width / 2.0, 0.99, f'expected {trend} ({len(loci)})',
+		            ha='center', va='top', fontsize=14, fontweight='bold')
 
 
 def add_legend(figure):
@@ -184,8 +136,7 @@ def add_legend(figure):
 	handles.append(Line2D([], [], color=FOCAL_COLOR, label='locus'))
 	handles.append(Line2D([], [], color=BACKGROUND_COLOR, linestyle='--', label='genome wide'))
 	handles.append(Line2D([], [], color=GENE_BACKGROUND_COLOR, linestyle='--', label='mean over all annotated genes'))
-	figure.legend(handles=handles, loc='center', bbox_to_anchor=(0.5, LEGEND_INCHES / figure.get_figheight() * 0.5),
-	              ncol=len(handles), frameon=False, fontsize=8)
+	figure.legend(handles=handles, loc='lower center', ncol=len(handles), frameon=False, fontsize=9)
 
 
 def loci_by_trend():
@@ -197,17 +148,20 @@ def loci_by_trend():
 
 def build_figure(table, gene_background, uncertainty):
 	'''
-	One column per expected trend, one panel per locus, every panel of a
-	column on the same axes.
+	One column per expected trend, one panel per locus, all on one grid so
+	every panel is the same size.
 	'''
 	columns = loci_by_trend()
 	row_count = max(len(loci) for loci in columns.values())
 	background_rows = table[table['target'] == GENOME_WIDE_TARGET].sort_values('time_start')
-	figure = plt.figure(figsize=figure_size(len(columns), row_count))
-	for column, (trend, loci) in enumerate(columns.items()):
-		fill_column(figure, column, row_count, loci, table, background_rows, gene_background, uncertainty)
-		add_column_labels(figure, column, trend, len(loci))
+	figure, axes = plt.subplots(
+		row_count, len(columns), squeeze=False,
+		figsize=(PANEL_WIDTH * len(columns), PANEL_HEIGHT * row_count))
+	for column, loci in enumerate(columns.values()):
+		fill_column(axes[:, column], loci, table, background_rows, gene_background, uncertainty)
 	add_legend(figure)
+	figure.tight_layout(rect=[0, 0.03, 1, 0.97])
+	add_headers(figure, axes, columns)
 	return figure
 
 
